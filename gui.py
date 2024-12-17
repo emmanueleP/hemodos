@@ -2,11 +2,11 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton,
                             QLabel, QCalendarWidget, QTableWidget, QTableWidgetItem, 
                             QFileDialog, QMessageBox, QMenuBar, QMenu, QAction,
                             QDialog, QComboBox, QStatusBar, QShortcut, QGroupBox, QHBoxLayout)
-from PyQt5.QtCore import Qt, QSettings, QDate, QTimer, QTime
-from PyQt5.QtGui import QColor, QPalette, QTextCharFormat, QKeySequence, QPixmap
+from PyQt5.QtCore import Qt, QSettings, QDate, QTimer, QTime, QSize
+from PyQt5.QtGui import QColor, QPalette, QTextCharFormat, QKeySequence, QPixmap, QIcon
 from utils import export_to_docx, print_data
 from database import (add_reservation, get_reservations, delete_reservation, init_db, 
-                     get_donation_dates, get_db_path, setup_cloud_monitoring, add_donation_time, save_donation_status, add_history_entry)
+                     get_donation_dates, get_db_path, setup_cloud_monitoring, add_donation_time, save_donation_status, add_history_entry, reset_reservation)
 from history_dialog import HistoryDialog
 from info_dialog import InfoDialog
 from datetime import datetime
@@ -194,14 +194,15 @@ class MainWindow(QMainWindow):
 
         # Table for managing appointments
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels(["Orario", "Nome", "Cognome", 
-                                             "Prima Donazione", "Stato"])
+                                             "Prima Donazione", "Stato", ""])
         self.table.setColumnWidth(0, 80)
         self.table.setColumnWidth(1, 150)
         self.table.setColumnWidth(2, 150)
         self.table.setColumnWidth(3, 120)
         self.table.setColumnWidth(4, 100)
+        self.table.setColumnWidth(5, 40)
         layout.addWidget(self.table)
 
         # Save button
@@ -341,6 +342,58 @@ class MainWindow(QMainWindow):
                 }}
             """)
             self.table.setCellWidget(row, 4, status_combo)
+            
+            # Aggiungi il pulsante di reset
+            reset_btn = QPushButton()
+            reset_btn.setFixedSize(30, 30)
+            
+            # Carica l'icona del cestino
+            # Prova diversi percorsi possibili per trovare l'icona
+            possible_paths = [
+                os.path.join(os.path.dirname(get_db_path()), "assets", "trash.png"),
+                os.path.join(os.path.dirname(__file__), "assets", "trash.png"),
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "trash.png"),
+                "assets/trash.png"
+            ]
+            
+            icon_found = False
+            for icon_path in possible_paths:
+                if os.path.exists(icon_path):
+                    icon = QIcon(icon_path)
+                    if not icon.isNull():
+                        reset_btn.setIcon(icon)
+                        reset_btn.setIconSize(QSize(16, 16))  # Dimensione icona più piccola
+                        icon_found = True
+                        break
+            
+            if not icon_found:
+                reset_btn.setText("X")
+                print(f"Icona non trovata. Percorsi tentati: {possible_paths}")
+            
+            reset_btn.setStyleSheet("""
+                QPushButton {
+                    border: none;
+                    background-color: transparent;
+                    margin: 0px;
+                    padding: 0px;
+                }
+                QPushButton:hover {
+                    background-color: #004d4d;
+                    border-radius: 15px;  /* Metà della larghezza per renderlo circolare */
+                }
+            """)
+            
+            # Collega il pulsante alla funzione di reset
+            reset_btn.clicked.connect(lambda checked, t=time: self.reset_reservation(t))
+            
+            # Crea un widget contenitore per centrare il pulsante
+            container = QWidget()
+            container_layout = QHBoxLayout(container)
+            container_layout.setContentsMargins(0, 0, 0, 0)
+            container_layout.setAlignment(Qt.AlignCenter)
+            container_layout.addWidget(reset_btn)
+            
+            self.table.setCellWidget(row, 5, container)
 
     def export_to_docx(self):
         try:
@@ -545,7 +598,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"Errore nel caricamento delle prenotazioni: {str(e)}")
 
-    def save_reservations(self, show_message=True):
+    def save_reservations(self, show_message=True, is_auto_save=False, is_closing=False):
         selected_date = self.calendar.selectedDate().toString("yyyy-MM-dd")
         try:
             # Salva tutte le righe della tabella
@@ -556,7 +609,7 @@ class MainWindow(QMainWindow):
                 first_donation_combo = self.table.cellWidget(row, 3)
                 status_combo = self.table.cellWidget(row, 4)
 
-                if orario_item:  # Salva tutte le righe, anche quelle vuote
+                if orario_item:
                     orario = orario_item.text()
                     nome = nome_item.text() if nome_item else ""
                     cognome = cognome_item.text() if cognome_item else ""
@@ -567,24 +620,27 @@ class MainWindow(QMainWindow):
                     add_reservation(selected_date, orario, nome, cognome, first_donation)
                     save_donation_status(selected_date, orario, donation_status)
 
-            # Aggiungi alla cronologia
-            details = f"Salvate prenotazioni per la data {selected_date}"
-            add_history_entry("Salvataggio prenotazioni", details, specific_date=selected_date)
-
-            # Aggiorna la status bar e le info
-            service = self.settings.value("cloud_service", "Locale")
-            if service in ["OneDrive", "Google Drive"]:
-                self.statusBar.showMessage(f"Salvataggio completato. Sincronizzazione {service} in corso...", 3000)
+            # Aggiungi alla cronologia solo messaggi di sistema appropriati
+            if is_closing:
+                add_history_entry("Sistema", "Chiusura applicazione e salvataggio dati")
+            elif is_auto_save:
+                add_history_entry("Sistema", "Salvataggio automatico")
             elif show_message:
-                self.statusBar.showMessage("Salvataggio completato", 3000)
+                add_history_entry("Sistema", f"Salvataggio manuale per la data {selected_date}")
+
+            if show_message:
+                self.statusBar.showMessage("Prenotazioni salvate con successo", 3000)
             
-            # Aggiorna la vista e le info
-            self.load_reservations()
-            self.highlight_donation_dates()
+            # Aggiorna info database
             self.update_db_info()
             
+            return True
+            
         except Exception as e:
-            self.statusBar.showMessage(f"Errore durante il salvataggio: {str(e)}", 5000)
+            if show_message:
+                QMessageBox.warning(self, "Errore", f"Errore durante il salvataggio: {str(e)}")
+            print(f"Errore durante il salvataggio: {str(e)}")
+            return False
 
     def show_settings(self):
         dialog = SettingsDialog(self)
@@ -749,12 +805,13 @@ class MainWindow(QMainWindow):
         """Salva tutto e chiude l'applicazione"""
         try:
             # Salva le modifiche correnti
-            self.save_reservations(show_message=False)
+            self.save_reservations(show_message=False, is_closing=True)
             
             # Ferma il monitoraggio cloud
             if hasattr(self, 'observer') and self.observer:
                 self.observer.stop()
                 self.observer.wait()
+                add_history_entry("Sistema", "Sincronizzazione cloud terminata")
             
             # Ferma il timer di autosave
             if hasattr(self, 'autosave_timer'):
@@ -855,3 +912,43 @@ class MainWindow(QMainWindow):
         
         # Mostra il menu alla posizione del mouse
         context_menu.exec_(self.calendar.mapToGlobal(position))
+
+    def reset_reservation(self, time):
+        """Gestisce il reset di una prenotazione"""
+        reply = QMessageBox.question(
+            self,
+            "Conferma l'eliminazione",
+            f"Sei sicuro di voler cancellare la prenotazione delle {time}?\n"
+            "Questa operazione non può essere annullata.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            selected_date = self.calendar.selectedDate().toString("yyyy-MM-dd")
+            
+            # Trova la riga corrispondente
+            for row in range(self.table.rowCount()):
+                if self.table.item(row, 0) and self.table.item(row, 0).text() == time:
+                    # Resetta i campi della tabella
+                    self.table.setItem(row, 1, QTableWidgetItem(""))  # Nome
+                    self.table.setItem(row, 2, QTableWidgetItem(""))  # Cognome
+                    
+                    # Resetta i combobox
+                    first_combo = self.table.cellWidget(row, 3)
+                    if first_combo:
+                        first_combo.setCurrentText("No")
+                    
+                    status_combo = self.table.cellWidget(row, 4)
+                    if status_combo:
+                        status_combo.setCurrentText("Non effettuata")
+                    break
+            
+            # Salva le modifiche nel database
+            if reset_reservation(selected_date, time):
+                self.save_reservations(show_message=False)  # Salva silenziosamente
+                self.statusBar.showMessage("Prenotazione eliminata con successo", 3000)
+                # Aggiorna info database
+                self.update_db_info()
+            else:
+                QMessageBox.warning(self, "Errore", "Impossibile eliminare la prenotazione")

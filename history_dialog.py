@@ -1,10 +1,13 @@
 from dialog_base import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QTableWidget, QTableWidgetItem,
-                            QPushButton, QHBoxLayout, QTabWidget, QWidget)
+                            QPushButton, QHBoxLayout, QTabWidget, QWidget, QComboBox, QLabel, QMessageBox)
 from PyQt5.QtCore import Qt
-from database import get_history, get_db_path
+from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import QSize
+from database import get_history, get_db_path, get_history_db_path
 import sqlite3
 from datetime import datetime
+import os
 
 class HistoryDialog(HemodosDialog):
     def __init__(self, parent=None):
@@ -13,88 +16,141 @@ class HistoryDialog(HemodosDialog):
         self.init_ui()
 
     def init_ui(self):
-        # Crea un tab widget per separare le cronologie
-        tab_widget = QTabWidget()
+        # Layout principale
+        layout = QVBoxLayout()
         
-        # Tab per le prenotazioni
-        reservations_tab = QWidget()
-        reservations_layout = QVBoxLayout()
+        # Header con selezione anno e pulsante elimina
+        header_layout = QHBoxLayout()
         
-        self.reservations_table = QTableWidget()
-        self.reservations_table.setColumnCount(3)
-        self.reservations_table.setHorizontalHeaderLabels(["Data e Ora", "Azione", "Dettagli"])
-        self.reservations_table.setColumnWidth(0, 150)
-        self.reservations_table.setColumnWidth(1, 150)
-        self.reservations_table.setColumnWidth(2, 450)
-        self.reservations_table.setAlternatingRowColors(True)
-        reservations_layout.addWidget(self.reservations_table)
+        # Selezione anno
+        year_group = QHBoxLayout()
+        year_group.addWidget(QLabel("Anno:"))
+        self.year_combo = QComboBox()
+        self.load_available_years()
+        self.year_combo.currentTextChanged.connect(self.load_history)
+        year_group.addWidget(self.year_combo)
+        header_layout.addLayout(year_group)
         
-        reservations_tab.setLayout(reservations_layout)
-        tab_widget.addTab(reservations_tab, "Prenotazioni")
+        # Pulsante elimina con icona cestino
+        delete_btn = QPushButton()
+        delete_btn.setFixedSize(40, 40)
         
-        # Tab per le date di donazione
-        donation_dates_tab = QWidget()
-        donation_dates_layout = QVBoxLayout()
+        # Carica l'icona del cestino
+        icon_path = os.path.join(os.path.dirname(get_db_path()), "assets", "trash.png")
+        if os.path.exists(icon_path):
+            delete_btn.setIcon(QIcon(icon_path))
+            delete_btn.setIconSize(QSize(20, 20))
+        else:
+            delete_btn.setText("🗑️")
         
-        self.donation_dates_table = QTableWidget()
-        self.donation_dates_table.setColumnCount(3)
-        self.donation_dates_table.setHorizontalHeaderLabels(["Data e Ora", "Azione", "Dettagli"])
-        self.donation_dates_table.setColumnWidth(0, 150)
-        self.donation_dates_table.setColumnWidth(1, 150)
-        self.donation_dates_table.setColumnWidth(2, 450)
-        self.donation_dates_table.setAlternatingRowColors(True)
-        donation_dates_layout.addWidget(self.donation_dates_table)
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ff4444;
+                border: 2px solid #004d4d;  /* Bordo color petrolio */
+                border-radius: 4px;         /* Bordi leggermente arrotondati */
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #ff0000;
+                border-color: #006666;      /* Bordo più chiaro in hover */
+            }
+        """)
+        delete_btn.setToolTip("Elimina cronologia dell'anno")
+        delete_btn.clicked.connect(self.delete_history)
+        header_layout.addWidget(delete_btn)
         
-        donation_dates_tab.setLayout(donation_dates_layout)
-        tab_widget.addTab(donation_dates_tab, "Date di Donazione")
+        self.content_layout.addLayout(header_layout)
         
-        self.content_layout.addWidget(tab_widget)
+        # Tabella cronologia
+        self.history_table = QTableWidget()
+        self.history_table.setColumnCount(3)
+        self.history_table.setHorizontalHeaderLabels(["Data e Ora", "Azione", "Dettagli"])
+        self.history_table.setColumnWidth(0, 150)
+        self.history_table.setColumnWidth(1, 150)
+        self.history_table.setColumnWidth(2, 450)
+        self.history_table.setAlternatingRowColors(True)
+        self.content_layout.addWidget(self.history_table)
         
         # Carica i dati
         self.load_history()
 
-    def load_history(self):
-        # Carica cronologia prenotazioni
-        self.load_reservations_history()
+    def load_available_years(self):
+        """Carica gli anni disponibili nei file di cronologia"""
+        base_path = os.path.dirname(get_db_path())
+        years = []
         
-        # Carica cronologia date di donazione
-        self.load_donation_dates_history()
+        # Cerca tutti i file cronologia_*.db
+        for filename in os.listdir(base_path):
+            if filename.startswith("cronologia_") and filename.endswith(".db"):
+                try:
+                    year = int(filename.split("_")[1].split(".")[0])
+                    years.append(year)
+                except:
+                    continue
+        
+        # Se non ci sono anni, usa l'anno corrente
+        if not years:
+            years = [datetime.now().year]
+        
+        # Popola il combo box
+        self.year_combo.clear()
+        for year in sorted(years, reverse=True):
+            self.year_combo.addItem(str(year))
 
-    def load_reservations_history(self):
+    def load_history(self):
+        """Carica la cronologia per l'anno selezionato"""
         try:
-            db_path = get_db_path(is_donation_dates=False)
-            conn = sqlite3.connect(db_path)
-            c = conn.cursor()
-            c.execute("SELECT timestamp, action, details FROM history ORDER BY timestamp DESC")
-            results = c.fetchall()
-            conn.close()
+            year = int(self.year_combo.currentText())
+            results = get_history(year)
             
-            self.reservations_table.setRowCount(len(results))
+            self.history_table.setRowCount(len(results))
             for row, (timestamp, action, details) in enumerate(results):
-                self.reservations_table.setItem(row, 0, QTableWidgetItem(timestamp))
-                self.reservations_table.setItem(row, 1, QTableWidgetItem(action))
-                self.reservations_table.setItem(row, 2, QTableWidgetItem(details))
+                self.history_table.setItem(row, 0, QTableWidgetItem(timestamp))
+                self.history_table.setItem(row, 1, QTableWidgetItem(action))
+                self.history_table.setItem(row, 2, QTableWidgetItem(details))
+            
         except Exception as e:
-            print(f"Errore nel caricamento della cronologia prenotazioni: {str(e)}")
+            print(f"Errore nel caricamento della cronologia: {str(e)}") 
 
-    def load_donation_dates_history(self):
-        try:
-            db_path = get_db_path(is_donation_dates=True)
-            conn = sqlite3.connect(db_path)
-            c = conn.cursor()
-            
-            # Crea la tabella history se non esiste
-            c.execute('''CREATE TABLE IF NOT EXISTS history
-                         (timestamp text, action text, details text)''')
-            
-            c.execute("SELECT timestamp, action, details FROM history ORDER BY timestamp DESC")
-            results = c.fetchall()
-            conn.close()
-            
-            self.donation_dates_table.setRowCount(len(results))
-            for row, (timestamp, action, details) in enumerate(results):
-                self.donation_dates_table.setItem(row, 0, QTableWidgetItem(timestamp))
-                self.donation_dates_table.setItem(row, 1, QTableWidgetItem(action))
-                self.donation_dates_table.setItem(row, 2, QTableWidgetItem(details))
-        except Exception as e:
-            print(f"Errore nel caricamento della cronologia date di donazione: {str(e)}") 
+    def delete_history(self):
+        """Elimina la cronologia dell'anno selezionato"""
+        year = self.year_combo.currentText()
+        
+        reply = QMessageBox.warning(
+            self,
+            "ATTENZIONE!",
+            f"Stai per eliminare la cronologia per l'anno {year}.\n"
+            "L'operazione è irreversibile.\n\n"
+            "Vuoi continuare?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            try:
+                # Elimina il file del database della cronologia
+                history_db = get_history_db_path(int(year))
+                if os.path.exists(history_db):
+                    os.remove(history_db)
+                    
+                    # Aggiorna la lista degli anni disponibili
+                    self.load_available_years()
+                    
+                    # Se non ci sono più anni, mostra tabella vuota
+                    if self.year_combo.count() == 0:
+                        self.history_table.setRowCount(0)
+                    else:
+                        # Altrimenti carica la cronologia dell'anno selezionato
+                        self.load_history()
+                    
+                    QMessageBox.information(
+                        self,
+                        "Successo",
+                        f"Cronologia dell'anno {year} eliminata con successo"
+                    )
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Errore",
+                    f"Impossibile eliminare la cronologia: {str(e)}"
+                ) 

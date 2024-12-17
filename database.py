@@ -130,42 +130,54 @@ def init_db(specific_date=None):
         print(f"Errore durante l'inizializzazione del database: {str(e)}")
         raise
 
+def get_history_db_path(year=None):
+    """Ottiene il percorso del database della cronologia per l'anno specificato"""
+    if year is None:
+        year = datetime.now().year
+    
+    base_path = os.path.dirname(get_db_path())
+    return os.path.join(base_path, f"cronologia_{year}.db")
+
 def add_history_entry(action, details, specific_date=None):
     """
-    Aggiunge un'entrata nella cronologia sia nel database giornaliero che in quello annuale
+    Aggiunge un'entrata nella cronologia nel database annuale
     """
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    year = datetime.now().year if specific_date is None else int(specific_date.split('-')[0])
     
-    # Aggiungi al database giornaliero
-    db_path = get_db_path(specific_date=specific_date)
-    conn = sqlite3.connect(db_path)
+    # Usa il database della cronologia annuale
+    history_db = get_history_db_path(year)
+    conn = sqlite3.connect(history_db)
     c = conn.cursor()
     
     c.execute('''CREATE TABLE IF NOT EXISTS history
                  (timestamp text, action text, details text)''')
-    c.execute("INSERT INTO history VALUES (?, ?, ?)", (timestamp, action, details))
-    conn.commit()
-    conn.close()
+    c.execute("INSERT INTO history VALUES (?, ?, ?)", 
+             (timestamp, action, details))
     
-    # Aggiungi anche al database annuale
-    year = datetime.now().year
-    annual_db_path = os.path.join(os.path.dirname(db_path), f"hemodos_{year}.db")
-    conn = sqlite3.connect(annual_db_path)
-    c = conn.cursor()
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS history
-                 (timestamp text, action text, details text)''')
-    c.execute("INSERT INTO history VALUES (?, ?, ?)", (timestamp, action, details))
     conn.commit()
     conn.close()
 
-def get_history():
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
+def get_history(year=None):
+    """Recupera la cronologia per l'anno specificato"""
+    if year is None:
+        year = datetime.now().year
+        
+    history_db = get_history_db_path(year)
+    
+    if not os.path.exists(history_db):
+        return []
+        
+    conn = sqlite3.connect(history_db)
     c = conn.cursor()
+    
+    c.execute('''CREATE TABLE IF NOT EXISTS history
+                 (timestamp text, action text, details text)''')
+    
     c.execute("SELECT timestamp, action, details FROM history ORDER BY timestamp DESC")
     results = c.fetchall()
     conn.close()
+    
     return results
 
 def add_reservation(date, time, name, surname, first_donation):
@@ -183,21 +195,33 @@ def add_reservation(date, time, name, surname, first_donation):
     ''')
     
     # Verifica se esiste già una prenotazione per questo orario
-    c.execute("SELECT stato FROM reservations WHERE time=?", (time,))
+    c.execute("SELECT name, surname, stato FROM reservations WHERE time=?", (time,))
     result = c.fetchone()
-    current_status = result[0] if result else 'Non effettuata'
+    
+    if result:
+        old_name, old_surname, current_status = result
+        # Aggiungi alla cronologia solo se c'è un cambiamento e i campi non sono vuoti
+        if ((old_name != name or old_surname != surname) and 
+            (name.strip() or surname.strip() or old_name.strip() or old_surname.strip())):
+            details = f"Data: {date}, Ora: {time}\n"
+            if old_name or old_surname:
+                details += f"Da: {old_name} {old_surname} -> "
+            details += f"A: {name} {surname}"
+            add_history_entry("Modifica prenotazione", details, specific_date=date)
+    else:
+        # Nuova prenotazione - aggiungi alla cronologia solo se non è vuota
+        if name.strip() or surname.strip():
+            details = f"Data: {date}, Ora: {time}, Nome: {name} {surname}"
+            add_history_entry("Nuova prenotazione", details, specific_date=date)
     
     # Inserisci o aggiorna la prenotazione mantenendo lo stato
     c.execute("""INSERT OR REPLACE INTO reservations 
                  (time, name, surname, first_donation, stato) 
                  VALUES (?,?,?,?,?)""", 
-              (time, name, surname, first_donation, current_status))
+              (time, name, surname, first_donation, current_status if result else 'Non effettuata'))
     
     conn.commit()
     conn.close()
-    
-    details = f"Data: {date}, Ora: {time}, Nome: {name} {surname}"
-    add_history_entry("Aggiunta prenotazione", details, specific_date=date)
 
 def get_reservations(date):
     try:
@@ -431,4 +455,36 @@ def save_donation_status(date, time, stato):
         return True
     except Exception as e:
         print(f"Errore nel salvataggio dello stato donazione: {str(e)}")
+        return False
+
+def reset_reservation(date, time):
+    """Resetta i dati di una prenotazione mantenendo l'orario"""
+    try:
+        db_path = get_db_path(specific_date=date)
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
+        
+        # Prima ottieni i dati attuali per la cronologia
+        c.execute("SELECT name, surname FROM reservations WHERE time = ?", (time,))
+        result = c.fetchone()
+        old_name, old_surname = result if result else ("", "")
+        
+        # Resetta tutti i campi tranne l'orario
+        c.execute("""UPDATE reservations 
+                    SET name = '', surname = '', 
+                        first_donation = 0, stato = 'Non effettuata'
+                    WHERE time = ?""", (time,))
+        
+        conn.commit()
+        conn.close()
+        
+        # Aggiungi alla cronologia
+        if old_name or old_surname:  # Solo se c'era una prenotazione
+            details = f"Data: {date}, Ora: {time}\nPrenotazione cancellata: {old_name} {old_surname}"
+            add_history_entry("Reset prenotazione", details, specific_date=date)
+        
+        return True
+        
+    except Exception as e:
+        print(f"Errore nel reset della prenotazione: {str(e)}")
         return False

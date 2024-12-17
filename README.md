@@ -28,4 +28,30 @@ Hemodos è un'applicazione desktop per la gestione e l'organizzazione delle pren
 
 ## Installazione
 
-1. Clona il repository: 
+
+## Configurazione
+
+Al primo avvio, l'applicazione chiederà di:
+1. Scegliere la modalità di salvataggio (locale o cloud)
+2. Configurare il percorso del database
+3. Impostare le preferenze di base
+
+## Utilizzo
+
+- Usa il calendario per navigare tra le date
+- Aggiungi/modifica prenotazioni nella tabella
+- Gestisci gli stati delle donazioni
+- Esporta o stampa i dati quando necessario
+- Visualizza le statistiche per monitorare l'andamento
+
+## Supporto
+
+Per segnalare bug o richiedere nuove funzionalità, apri una issue su GitHub.
+
+## Licenza
+
+Questo progetto è rilasciato sotto licenza MIT. Vedi il file [LICENSE.md](LICENSE.md) per i dettagli.
+
+## Autore
+
+Emmanuele Pani - (https://github.com/emmanueleP)
