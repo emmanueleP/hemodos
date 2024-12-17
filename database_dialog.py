@@ -1,9 +1,11 @@
 from dialog_base import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QPushButton, 
                             QLabel, QRadioButton, QButtonGroup, QFileDialog,
-                            QMessageBox, QGroupBox)
-from PyQt5.QtCore import QSettings
+                            QMessageBox, QGroupBox, QWidget)
+from PyQt5.QtCore import QSettings, Qt
+from PyQt5.QtGui import QIcon, QPixmap
 import os
+from database import get_db_path
 
 class FirstRunDialog(HemodosDialog):
     def __init__(self, parent=None):
@@ -13,10 +15,48 @@ class FirstRunDialog(HemodosDialog):
         self.init_ui()
 
     def init_ui(self):
-        # Messaggio di benvenuto
+        # Container principale
+        main_container = QWidget()
+        main_layout = QVBoxLayout(main_container)
+
+        # Logo container
+        logo_container = QWidget()
+        logo_container.setFixedHeight(220)  # Altezza fissa per il logo
+        logo_layout = QVBoxLayout(logo_container)
+        logo_layout.setContentsMargins(0, 0, 0, 0)  # Rimuovi i margini
+        
+        # Aggiungi il logo
+        logo_label = QLabel()
+        # Usa il percorso relativo alla directory dell'applicazione
+        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "logo_info.png")
+        # Prova percorsi alternativi se il primo fallisce
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo_info.png")
+        if not os.path.exists(logo_path):
+            logo_path = "assets/logo_info.png"
+
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path)
+            scaled_pixmap = pixmap.scaled(200, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            logo_label.setPixmap(scaled_pixmap)
+            logo_label.setAlignment(Qt.AlignCenter)
+            print(f"Logo caricato con successo da: {logo_path}")
+        else:
+            logo_label.setText("Logo non trovato")
+            logo_label.setStyleSheet("QLabel { color: red; }")
+            print(f"Logo non trovato. Percorsi tentati:")
+            print(f"1. {os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'logo_info.png')}")
+            print(f"2. {os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'logo_info.png')}")
+            print(f"3. assets/logo_info.png")
+            print(f"Directory corrente: {os.getcwd()}")
+        
+        logo_layout.addWidget(logo_label)
+        main_layout.addWidget(logo_container)
+
+        # Resto del contenuto
         welcome_label = QLabel("Scegli come vuoi gestire il database:")
         welcome_label.setStyleSheet("font-size: 14px;")
-        self.content_layout.addWidget(welcome_label)
+        main_layout.addWidget(welcome_label)
 
         # Gruppo opzioni per il database
         options_group = QGroupBox("Opzioni Database")
@@ -45,7 +85,9 @@ class FirstRunDialog(HemodosDialog):
         options_layout.addWidget(gdrive_radio)
 
         options_group.setLayout(options_layout)
-        self.content_layout.addWidget(options_group)
+        main_layout.addWidget(options_group)
+
+        self.content_layout.addWidget(main_container)
 
     def check_and_accept(self):
         selected_button = self.button_group.checkedButton()

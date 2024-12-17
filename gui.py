@@ -25,7 +25,8 @@ class MainWindow(QMainWindow):
 
         # Set window properties
         self.setWindowTitle("Hemodos - Prenotazioni Donazioni di Sangue")
-        self.resize(800, 600)
+        self.resize(1024, 768)
+        self.setMinimumSize(800, 600)
 
         # Set theme and colors
         self.primary_color = "#004d4d"  # Colore petrolio

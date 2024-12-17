@@ -1,7 +1,9 @@
 from dialog_base import HemodosDialog
-from PyQt5.QtWidgets import QTextBrowser
+from PyQt5.QtWidgets import QTextBrowser, QLabel, QVBoxLayout, QWidget
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QFont
+import os
+from database import get_db_path
 
 class InfoDialog(HemodosDialog):
     def __init__(self, parent=None):
@@ -11,6 +13,46 @@ class InfoDialog(HemodosDialog):
         self.init_ui()
 
     def init_ui(self):
+        # Container principale
+        main_container = QWidget()
+        main_layout = QVBoxLayout(main_container)
+        main_layout.setSpacing(10)  # Riduci lo spazio tra gli elementi
+        main_layout.setContentsMargins(20, 10, 20, 20)  # Riduci i margini
+
+        # Logo container
+        logo_container = QWidget()
+        logo_container.setFixedHeight(160)  # Riduci l'altezza del container
+        logo_layout = QVBoxLayout(logo_container)
+        logo_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Aggiungi il logo
+        logo_label = QLabel()
+        # Usa il percorso relativo alla directory dell'applicazione
+        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "logo_info.png")
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo_info.png")
+        if not os.path.exists(logo_path):
+            logo_path = "assets/logo_info.png"
+
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path)
+            scaled_pixmap = pixmap.scaled(150, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation)  # Logo più piccolo
+            logo_label.setPixmap(scaled_pixmap)
+            logo_label.setAlignment(Qt.AlignCenter)
+            print(f"Logo caricato con successo da: {logo_path}")
+        else:
+            logo_label.setText("Logo non trovato")
+            logo_label.setStyleSheet("QLabel { color: red; }")
+            print(f"Logo non trovato. Percorsi tentati:")
+            print(f"1. {os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'logo_info.png')}")
+            print(f"2. {os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'logo_info.png')}")
+            print(f"3. assets/logo_info.png")
+            print(f"Directory corrente: {os.getcwd()}")
+        
+        logo_layout.addWidget(logo_label)
+        main_layout.addWidget(logo_container)
+
+        # Resto del contenuto
         info_text = QTextBrowser()
         info_text.setOpenExternalLinks(True)
         info_text.setStyleSheet("""
@@ -19,6 +61,7 @@ class InfoDialog(HemodosDialog):
                 background-color: transparent;
                 font-size: 14px;
                 line-height: 1.4;
+                margin-top: 0px;
             }
         """)
         info_text.setHtml("""
@@ -26,6 +69,7 @@ class InfoDialog(HemodosDialog):
             <b>Software per la Gestione delle Donazioni di Sangue</b>
             </p>
             <p>Aristotele, <i>Historia Animalium 3.19</i>: "τὰ δ᾽ ἔχοντα αἷμα ζωογονοῦσιν" ("gli animali che hanno sangue generano vita").</p>
+
             
             <p>
             Hemodos è un'applicazione progettata per gestire e organizzare le prenotazioni 
@@ -78,4 +122,5 @@ class InfoDialog(HemodosDialog):
             <h3>Version:</h3>
             <p>1.0.0</p>
         """)
-        self.content_layout.addWidget(info_text) 
+        main_layout.addWidget(info_text)
+        self.content_layout.addWidget(main_container)

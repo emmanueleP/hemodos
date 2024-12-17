@@ -1,11 +1,19 @@
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
 from PyQt5.QtCore import Qt
+import os
+from PyQt5.QtGui import QIcon
+from database import get_db_path
 
 class HemodosDialog(QDialog):
     def __init__(self, parent=None, title=""):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumWidth(500)
+        
+        # Imposta l'icona della finestra
+        icon_path = os.path.join(os.path.dirname(get_db_path()), "assets", "logo.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
         
         # Layout principale con margini uniformi
         self.main_layout = QVBoxLayout()

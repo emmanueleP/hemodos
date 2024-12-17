@@ -1,7 +1,7 @@
 import sys
 import json
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QFileDialog
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QIcon
 from gui import MainWindow
 from PyQt5.QtCore import QSettings
 from database_dialog import FirstRunDialog
@@ -23,6 +23,11 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Hemodos")
     app.setStyle("Fusion")
+    
+    # Imposta l'icona dell'applicazione
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo.png")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
     
     settings = QSettings('Hemodos', 'DatabaseSettings')
     first_run = settings.value("first_run", True, type=bool)
