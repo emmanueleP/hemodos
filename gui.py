@@ -69,14 +69,14 @@ class MainWindow(QMainWindow):
         
         # Add Time Entry action
         add_time_action = QAction('Aggiungi Orario', self)
-        add_time_action.setShortcut('Alt+A')
+        add_time_action.setShortcut('Ctrl+T')
         add_time_action.triggered.connect(self.show_time_entry_dialog)
         file_menu.addAction(add_time_action)
         
-        # Aggiungi l'azione di salvataggio nel menu File
+        # Azione di salvataggio
         save_action = QAction('Salva', self)
         save_action.setShortcut('Ctrl+S')
-        save_action.triggered.connect(self.save_reservations)
+        save_action.triggered.connect(lambda: self.save_reservations(show_message=True))
         file_menu.addAction(save_action)
         
         open_db_action = QAction('Apri Database...', self)
@@ -201,12 +201,12 @@ class MainWindow(QMainWindow):
         self.table.setColumnWidth(1, 150)
         self.table.setColumnWidth(2, 150)
         self.table.setColumnWidth(3, 120)
-        self.table.setColumnWidth(4, 100)
+        self.table.setColumnWidth(4, 110)
         self.table.setColumnWidth(5, 40)
         layout.addWidget(self.table)
 
         # Save button
-        save_button = QPushButton("Salva Prenotazioni")
+        save_button = QPushButton("Salva")
         save_button.clicked.connect(self.save_reservations)
         layout.addWidget(save_button)
 
