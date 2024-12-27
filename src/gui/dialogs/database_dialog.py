@@ -87,7 +87,31 @@ class FirstRunDialog(HemodosDialog):
         options_group.setLayout(options_layout)
         main_layout.addWidget(options_group)
 
+        # Aggiungi il copyright
+        copyright_label = QLabel("© 2025 Emmanuele Pani. Under MIT License.")
+        copyright_label.setStyleSheet("""
+            QLabel {
+                color: #666666;
+                font-size: 11px;
+                padding: 10px;
+            }
+        """)
+        copyright_label.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(copyright_label)
+
+        # Aggiungi uno spazio elastico prima dei pulsanti
+        main_layout.addStretch()
+
         self.content_layout.addWidget(main_container)
+
+        # Modifica i pulsanti
+        self.buttons_layout.itemAt(1).widget().setText("Avanti")  # Cambia "OK" in "Avanti"
+        self.buttons_layout.itemAt(2).widget().setText("Esci")    # Cambia "Annulla" in "Esci"
+
+        # Collega il pulsante Avanti alla verifica
+        ok_button = self.buttons_layout.itemAt(1).widget()
+        ok_button.clicked.disconnect()  # Disconnetti il vecchio segnale
+        ok_button.clicked.connect(self.check_and_accept)
 
     def check_and_accept(self):
         selected_button = self.button_group.checkedButton()
@@ -96,4 +120,4 @@ class FirstRunDialog(HemodosDialog):
             return
 
         self.selected_option = self.button_group.id(selected_button)
-        self.accept() 
+        self.accept()

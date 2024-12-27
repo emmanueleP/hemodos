@@ -23,24 +23,83 @@ wheels/
 # Virtual Environment
 venv/
 ENV/
+.env/
+.venv/
+env/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+.vs/
+*.sublime-workspace
+*.sublime-project
 
 # Project specific
 *.db
 *.log
 *.bak
 config.json
+!hemodos.spec
+*.iss
+*.txt
+!requirements.txt
+
+# Build and Installer
+installer/
+Output/
+*.exe
+*.msi
+*.deb
+*.rpm
+*.pkg
+*.dmg
 
 # OS specific
 .DS_Store
 Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
 
-# Installer
-installer/
-Output/
-*.exe
+# Temporary files
+*.tmp
+*.temp
+~*
+*.~*
+*.cache
+
+# Documentation
+_build/
+_static/
+_templates/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Test cache
+.pytest_cache/
+.tox/
+nosetests.xml
+coverage.xml
+
+# Translations
+*.mo
+*.pot
+
+# Database
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Backup files
+*.bak
+*~
+*.old
+*.orig
+*.rej

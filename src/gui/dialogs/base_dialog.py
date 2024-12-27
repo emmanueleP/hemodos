@@ -11,7 +11,7 @@ class HemodosDialog(QDialog):
         self.setMinimumWidth(500)
         
         # Imposta l'icona della finestra
-        icon_path = os.path.join(os.path.dirname(get_db_path()), "assets", "logo.png")
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "logo.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
         

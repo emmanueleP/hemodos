@@ -33,7 +33,7 @@ VSVersionInfo(
         StringStruct(u'FileDescription', u'Software per la Gestione delle Donazioni di Sangue'),
         StringStruct(u'FileVersion', u'1.0.0'),
         StringStruct(u'InternalName', u'Hemodos'),
-        StringStruct(u'LegalCopyright', u'Copyright (c) 2024 Emmanuele Pani'),
+        StringStruct(u'LegalCopyright', u'Copyright (c) 2025 Emmanuele Pani'),
         StringStruct(u'OriginalFilename', u'Hemodos.exe'),
         StringStruct(u'ProductName', u'Hemodos'),
         StringStruct(u'ProductVersion', u'1.0.0')])
