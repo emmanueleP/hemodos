@@ -40,11 +40,14 @@ env/
 *.db
 *.log
 *.bak
-config.json
-hemodos.spec
+[0-9A-Za-z]*.spec
+!hemodos.spec
 *.iss
+!setup.iss
 *.txt
 !requirements.txt
+!file_version_info.txt
+config.json
 
 # Build and Installer
 installer/
@@ -102,4 +105,4 @@ coverage.xml
 *~
 *.old
 *.orig
-*.rej
+*.rej 
