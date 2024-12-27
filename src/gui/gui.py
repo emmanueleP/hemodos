@@ -4,19 +4,20 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton,
                             QDialog, QComboBox, QStatusBar, QShortcut, QGroupBox, QHBoxLayout)
 from PyQt5.QtCore import Qt, QSettings, QDate, QTimer, QTime, QSize
 from PyQt5.QtGui import QColor, QPalette, QTextCharFormat, QKeySequence, QPixmap, QIcon
-from utils import export_to_docx, print_data
-from database import (add_reservation, get_reservations, delete_reservation, init_db, 
-                     get_donation_dates, get_db_path, setup_cloud_monitoring, add_donation_time, save_donation_status, add_history_entry, reset_reservation)
-from history_dialog import HistoryDialog
-from info_dialog import InfoDialog
+from core.utils import export_to_docx, print_data
+from core.database import (add_reservation, get_reservations, delete_reservation,
+                     init_db, get_donation_dates, get_db_path, setup_cloud_monitoring, 
+                     add_donation_time, save_donation_status, add_history_entry, reset_reservation)
+from gui.dialogs.history_dialog import HistoryDialog
+from gui.dialogs.info_dialog import InfoDialog
+from gui.dialogs.database_dialog import FirstRunDialog
+from gui.dialogs.delete_dialog import DeleteFilesDialog
+from gui.dialogs.time_entry_dialog import TimeEntryDialog
+from gui.dialogs.statistics_dialog import StatisticsDialog
+from config.settings import SettingsDialog
+from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from datetime import datetime
 import os
-from database_dialog import FirstRunDialog
-from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
-from delete_dialog import DeleteFilesDialog
-from settings import SettingsDialog
-from time_entry_dialog import TimeEntryDialog
-from statistics_dialog import StatisticsDialog
 
 class MainWindow(QMainWindow):
     def __init__(self, config):
@@ -134,6 +135,11 @@ class MainWindow(QMainWindow):
 
         # Menu Info
         info_menu = menubar.addMenu('Info')
+        
+        manual_action = QAction('Manuale', self)
+        manual_action.setShortcut('F1')
+        manual_action.triggered.connect(self.show_manual)
+        info_menu.addAction(manual_action)
         
         about_action = QAction('Informazioni su Hemodos', self)
         about_action.triggered.connect(self.show_info)
@@ -953,3 +959,9 @@ class MainWindow(QMainWindow):
                 self.update_db_info()
             else:
                 QMessageBox.warning(self, "Errore", "Impossibile eliminare la prenotazione")
+
+    def show_manual(self):
+        """Mostra il manuale utente"""
+        from gui.dialogs.manual_dialog import ManualDialog
+        dialog = ManualDialog(self)
+        dialog.exec_()

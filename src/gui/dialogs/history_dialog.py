@@ -1,13 +1,12 @@
-from dialog_base import HemodosDialog
+from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QTableWidget, QTableWidgetItem,
                             QPushButton, QHBoxLayout, QTabWidget, QWidget, QComboBox, QLabel, QMessageBox)
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QSize
-from database import get_history, get_db_path, get_history_db_path
+import os
+from core.database import get_history, get_db_path, get_history_db_path
 import sqlite3
 from datetime import datetime
-import os
 
 class HistoryDialog(HemodosDialog):
     def __init__(self, parent=None):

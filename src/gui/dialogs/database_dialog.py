@@ -1,11 +1,11 @@
-from dialog_base import HemodosDialog
+from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QPushButton, 
                             QLabel, QRadioButton, QButtonGroup, QFileDialog,
                             QMessageBox, QGroupBox, QWidget)
 from PyQt5.QtCore import QSettings, Qt
 from PyQt5.QtGui import QIcon, QPixmap
 import os
-from database import get_db_path
+from core.database import get_db_path
 
 class FirstRunDialog(HemodosDialog):
     def __init__(self, parent=None):

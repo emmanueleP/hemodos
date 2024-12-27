@@ -1,4 +1,4 @@
-from dialog_base import HemodosDialog
+from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, 
                             QPushButton, QComboBox, QFileDialog, QLineEdit,
                             QTabWidget, QWidget, QGroupBox, QFormLayout,
@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel,
                             QCheckBox, QSpinBox, QMessageBox)
 from PyQt5.QtCore import QSettings, QDate, Qt, QRegExp
 from PyQt5.QtGui import QRegExpValidator, QTextCharFormat, QColor, QPixmap
-from database import (add_donation_date, get_donation_dates, delete_donation_date, 
+from core.database import (add_donation_date, get_donation_dates, delete_donation_date, 
                      get_db_path)
 import os
 import shutil
@@ -14,7 +14,7 @@ from datetime import datetime
 
 class SettingsDialog(HemodosDialog):
     def __init__(self, parent=None):
-        super().__init__(parent, "")
+        super().__init__(parent, "Impostazioni")
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
         self.parent = parent
         self.init_ui()

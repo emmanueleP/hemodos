@@ -1,4 +1,4 @@
-from dialog_base import HemodosDialog
+from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QTreeWidget, QTreeWidgetItem, 
                             QPushButton, QHBoxLayout, QMessageBox)
 from PyQt5.QtCore import Qt, QSettings

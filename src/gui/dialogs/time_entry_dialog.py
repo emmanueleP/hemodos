@@ -1,10 +1,10 @@
-from dialog_base import HemodosDialog
+from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, 
                             QTimeEdit, QMessageBox)
 from PyQt5.QtCore import QTime
 from PyQt5.QtGui import QIcon
 import os
-from database import get_db_path, add_donation_time
+from core.database import get_db_path, add_donation_time
 
 class TimeEntryDialog(HemodosDialog):
     def __init__(self, parent=None, selected_date=None):

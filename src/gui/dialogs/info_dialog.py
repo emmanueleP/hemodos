@@ -1,9 +1,9 @@
-from dialog_base import HemodosDialog
+from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import QTextBrowser, QLabel, QVBoxLayout, QWidget
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QFont
 import os
-from database import get_db_path
+from core.database import get_db_path
 
 class InfoDialog(HemodosDialog):
     def __init__(self, parent=None):

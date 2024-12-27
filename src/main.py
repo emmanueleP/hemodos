@@ -1,20 +1,67 @@
-import sys
-import json
+from gui.gui import MainWindow
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QFileDialog
 from PyQt5.QtGui import QFont, QIcon
-from gui import MainWindow
+from gui.dialogs.database_dialog import FirstRunDialog
 from PyQt5.QtCore import QSettings
-from database_dialog import FirstRunDialog
 import os
+import json
+import sys
 
 # Load configuration
 def load_config():
     try:
-        with open('config.json', 'r') as file:
+        # Prima cerca nella directory di installazione
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        config_path = os.path.join(exe_dir, 'config.json')
+        
+        # Se non esiste, cerca nella directory corrente
+        if not os.path.exists(config_path):
+            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+        
+        # Se ancora non esiste, usa il config di default
+        if not os.path.exists(config_path):
+            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config.json')
+        
+        with open(config_path, 'r', encoding='utf-8') as file:
             return json.load(file)
     except FileNotFoundError:
         print("Errore: Il file config.json non è stato trovato")
-        raise
+        # Crea un config di default
+        config = {
+            "database": {
+                "host": "localhost",
+                "port": 5432,
+                "name": "hemodos_db",
+                "user": "admin",
+                "password": "password",
+                "backup_dir": "backups"
+            },
+            "app": {
+                "debug": True,
+                "log_level": "INFO",
+                "autosave": {"enabled": True, "interval": 5},
+                "cloud": {"service": "Locale", "sync_interval": 30}
+            },
+            "ui": {
+                "theme": "light",
+                "primary_color": "#004d4d",
+                "font": "SF Pro Display",
+                "window": {
+                    "width": 1024,
+                    "height": 768,
+                    "min_width": 800,
+                    "min_height": 600
+                }
+            }
+        }
+        # Salva il config di default
+        try:
+            with open(config_path, 'w', encoding='utf-8') as file:
+                json.dump(config, file, indent=4)
+            return config
+        except Exception as e:
+            print(f"Errore nel salvare il config di default: {str(e)}")
+            raise
     except json.JSONDecodeError:
         print("Errore: Il file config.json non contiene un JSON valido")
         raise

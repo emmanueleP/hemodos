@@ -1,0 +1,6 @@
+include LICENSE.md
+include docs/README.md
+include requirements.txt
+include config.json
+recursive-include assets *
+recursive-include docs * 

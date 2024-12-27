@@ -4,15 +4,30 @@
         "port": 5432,
         "name": "hemodos_db",
         "user": "admin",
-        "password": "password"
+        "password": "password",
+        "backup_dir": "backups"
     },
     "app": {
         "debug": true,
-        "log_level": "INFO"
+        "log_level": "INFO",
+        "autosave": {
+            "enabled": true,
+            "interval": 5
+        },
+        "cloud": {
+            "service": "Locale",
+            "sync_interval": 30
+        }
     },
     "ui": {
         "theme": "light",
         "primary_color": "#004d4d",
-        "font": "SF Pro Display"
+        "font": "SF Pro Display",
+        "window": {
+            "width": 1024,
+            "height": 768,
+            "min_width": 800,
+            "min_height": 600
+        }
     }
-}
+} 

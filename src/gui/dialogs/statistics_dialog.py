@@ -1,9 +1,9 @@
-from dialog_base import HemodosDialog
+from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QTabWidget, QWidget, 
                             QComboBox, QLabel)
 from PyQt5.QtGui import QIcon
 import os
-from database import get_db_path
+from core.database import get_db_path
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
