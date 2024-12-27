@@ -41,7 +41,7 @@ env/
 *.log
 *.bak
 config.json
-!hemodos.spec
+hemodos.spec
 *.iss
 *.txt
 !requirements.txt
