@@ -1,8 +1,8 @@
 from gui.gui import MainWindow
-from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QFileDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QFileDialog, QMessageBox, QProgressDialog
 from PyQt5.QtGui import QFont, QIcon
 from gui.dialogs.database_dialog import FirstRunDialog
-from PyQt5.QtCore import QSettings
+from PyQt5.QtCore import QSettings, Qt
 import os
 import json
 import sys
@@ -66,6 +66,30 @@ def load_config():
         print("Errore: Il file config.json non contiene un JSON valido")
         raise
 
+def show_update_dialog(version, release_notes, download_url):
+    """Mostra il dialogo quando è disponibile un aggiornamento"""
+    msg = QMessageBox()
+    msg.setIcon(QMessageBox.Information)
+    msg.setWindowTitle("Aggiornamento Disponibile")
+    msg.setText(f"È disponibile una nuova versione di Hemodos (v{version})")
+    msg.setInformativeText("Note di rilascio:\n" + release_notes)
+    msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+    msg.setDefaultButton(QMessageBox.Yes)
+    
+    if msg.exec_() == QMessageBox.Yes:
+        # Crea e mostra la finestra di progresso
+        progress = QProgressDialog("Download aggiornamento in corso...", "Annulla", 0, 100)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setAutoClose(True)
+        
+        # Avvia il download e l'installazione
+        from core.updater import Updater
+        updater = Updater(download_url)
+        updater.update_progress.connect(progress.setValue)
+        updater.update_completed.connect(lambda: QApplication.instance().quit())
+        updater.update_error.connect(lambda msg: QMessageBox.warning(None, "Errore", msg))
+        updater.start()
+
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Hemodos")
@@ -77,6 +101,14 @@ def main():
         app.setWindowIcon(QIcon(icon_path))
     
     settings = QSettings('Hemodos', 'DatabaseSettings')
+    
+    # Controllo aggiornamenti automatico
+    if settings.value("check_updates", True, type=bool):
+        from core.updater import UpdateChecker
+        update_checker = UpdateChecker("1.0.0")
+        update_checker.update_available.connect(show_update_dialog)
+        update_checker.start()
+    
     first_run = settings.value("first_run", True, type=bool)
 
     if first_run:

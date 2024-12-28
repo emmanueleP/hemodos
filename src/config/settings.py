@@ -3,7 +3,8 @@ from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel,
                             QPushButton, QComboBox, QFileDialog, QLineEdit,
                             QTabWidget, QWidget, QGroupBox, QFormLayout,
                             QCalendarWidget, QListWidget, QListWidgetItem,
-                            QCheckBox, QSpinBox, QMessageBox)
+                            QCheckBox, QSpinBox, QMessageBox, QTextBrowser,
+                            QProgressDialog)
 from PyQt5.QtCore import QSettings, QDate, Qt, QRegExp
 from PyQt5.QtGui import QRegExpValidator, QTextCharFormat, QColor, QPixmap
 from core.database import (add_donation_date, get_donation_dates, delete_donation_date, 
@@ -43,10 +44,114 @@ class SettingsDialog(HemodosDialog):
         print_tab = self.init_print_tab()
         tab_widget.addTab(print_tab, "Stampa")
 
+        # Aggiornamento tab
+        update_tab = self.init_update_tab()
+        tab_widget.addTab(update_tab, "Aggiornamento")
+
         self.content_layout.addWidget(tab_widget)
         
         # Initialize path based on current service
         self.on_service_changed(self.cloud_service.currentText())
+
+    def init_update_tab(self):
+        update_tab = QWidget()
+        layout = QVBoxLayout()
+        
+        # Gruppo Aggiornamenti Automatici
+        auto_update_group = QGroupBox("Aggiornamenti Automatici")
+        auto_update_layout = QVBoxLayout()
+        
+        self.check_updates_cb = QCheckBox("Controlla automaticamente gli aggiornamenti")
+        self.check_updates_cb.setChecked(
+            self.settings.value("check_updates", True, type=bool)
+        )
+        self.check_updates_cb.toggled.connect(lambda checked: 
+            self.settings.setValue("check_updates", checked))
+        auto_update_layout.addWidget(self.check_updates_cb)
+        
+        # Pulsante per controllo manuale
+        check_now_btn = QPushButton("Controlla Aggiornamenti")
+        check_now_btn.clicked.connect(self.check_updates_manually)
+        auto_update_layout.addWidget(check_now_btn)
+        
+        # Label per la versione corrente
+        version_label = QLabel(f"Versione corrente: {self.get_current_version()}")
+        auto_update_layout.addWidget(version_label)
+        
+        auto_update_group.setLayout(auto_update_layout)
+        layout.addWidget(auto_update_group)
+        
+        # Gruppo Cronologia Aggiornamenti
+        history_group = QGroupBox("Cronologia Aggiornamenti")
+        history_layout = QVBoxLayout()
+        
+        self.update_history = QTextBrowser()
+        self.update_history.setMaximumHeight(200)
+        history_layout.addWidget(self.update_history)
+        
+        history_group.setLayout(history_layout)
+        layout.addWidget(history_group)
+        
+        # Aggiorna la cronologia
+        self.update_history_text()
+        
+        layout.addStretch()
+        update_tab.setLayout(layout)
+        return update_tab
+
+    def get_current_version(self):
+        return "1.0.0"  # Versione corrente dell'app
+
+    def check_updates_manually(self):
+        """Controlla manualmente gli aggiornamenti"""
+        from core.updater import UpdateChecker
+        
+        self.update_checker = UpdateChecker(self.get_current_version())
+        self.update_checker.update_available.connect(self.show_update_dialog)
+        self.update_checker.error_occurred.connect(self.show_update_error)
+        self.update_checker.start()
+
+    def show_update_dialog(self, version, release_notes, download_url):
+        """Mostra il dialogo di aggiornamento disponibile"""
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle("Aggiornamento Disponibile")
+        msg.setText(f"È disponibile una nuova versione di Hemodos (v{version})")
+        msg.setInformativeText("Note di rilascio:\n" + release_notes)
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.Yes)
+        
+        if msg.exec_() == QMessageBox.Yes:
+            self.start_update(download_url)
+
+    def show_update_error(self, error_msg):
+        """Mostra errori durante il controllo aggiornamenti"""
+        QMessageBox.warning(self, "Errore", error_msg)
+
+    def start_update(self, download_url):
+        """Avvia il processo di aggiornamento"""
+        from core.updater import Updater
+        
+        # Crea e mostra la finestra di progresso
+        progress = QProgressDialog("Download aggiornamento in corso...", "Annulla", 0, 100, self)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setAutoClose(True)
+        
+        self.updater = Updater(download_url)
+        self.updater.update_progress.connect(progress.setValue)
+        self.updater.update_completed.connect(self.on_update_completed)
+        self.updater.update_error.connect(self.show_update_error)
+        self.updater.start()
+
+    def on_update_completed(self):
+        """Gestisce il completamento dell'aggiornamento"""
+        QMessageBox.information(
+            self,
+            "Aggiornamento Completato",
+            "L'aggiornamento è stato scaricato.\n"
+            "L'applicazione verrà chiusa per completare l'installazione."
+        )
+        self.parent().close()
 
     def init_appearance_tab(self):
         appearance_tab = QWidget()
@@ -379,3 +484,20 @@ class SettingsDialog(HemodosDialog):
         self.settings.remove("print_logo")
         self.logo_preview.setPixmap(QPixmap())
         self.logo_preview.setText("Nessun logo")
+
+    def update_history_text(self):
+        """Aggiorna il testo della cronologia aggiornamenti"""
+        history = self.settings.value("update_history", [])
+        
+        if not history:
+            self.update_history.setText("Nessun aggiornamento nella cronologia")
+            return
+        
+        text = ""
+        for entry in history:
+            date = datetime.fromisoformat(entry['date'].replace('Z', '+00:00'))
+            formatted_date = date.strftime("%d/%m/%Y %H:%M")
+            text += f"Versione {entry['version']} - {formatted_date}\n"
+            text += f"Stato: {entry['status']}\n\n"
+        
+        self.update_history.setText(text)

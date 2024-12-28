@@ -20,4 +20,8 @@ class ValidationError(HemodosError):
 
 class FileOperationError(HemodosError):
     """Errore nelle operazioni sui file"""
+    pass
+
+class UpdateError(HemodosError):
+    """Errore durante l'aggiornamento"""
     pass 
