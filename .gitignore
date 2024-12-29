@@ -37,16 +37,13 @@ env/
 *.sublime-project
 
 # Project specific
+build.sh
 *.db
 *.log
 *.bak
-[0-9A-Za-z]*.spec
-!hemodos.spec
-*.iss
-!setup.iss
-*.txt
-!requirements.txt
-!file_version_info.txt
+hemodos.spec
+*iss
+*txt
 config.json
 
 # Build and Installer
@@ -99,10 +96,3 @@ coverage.xml
 *.sqlite
 *.sqlite3
 *.db-journal
-
-# Backup files
-*.bak
-*~
-*.old
-*.orig
-*.rej 
