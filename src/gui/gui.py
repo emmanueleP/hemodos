@@ -18,11 +18,17 @@ from config.settings import SettingsDialog
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from datetime import datetime
 import os
+import sqlite3
+from core.year_manager import YearManager
+from core.logger import logger
+from gui.widgets.reservations_widget import ReservationsWidget
+from core.themes import THEMES
 
 class MainWindow(QMainWindow):
     def __init__(self, config):
         super().__init__()
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
+        self.last_valid_date = QDate.currentDate()
 
         # Set window properties
         self.setWindowTitle("Hemodos - Prenotazioni Donazioni di Sangue")
@@ -30,11 +36,8 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(800, 600)
 
         # Set theme and colors
-        self.primary_color = "#004d4d"  # Colore petrolio
+        self.primary_color = "#004d4d"
         self.apply_theme()
-
-        # Inizializza il database prima di tutto
-        init_db()
 
         # Create menu bar
         self.create_menu_bar()
@@ -45,11 +48,11 @@ class MainWindow(QMainWindow):
         # Initialize UI
         self.init_ui()
 
+        # Carica il database del giorno corrente
+        self.load_current_day_database()
+
         # Evidenzia le date dopo che tutto è stato inizializzato
         self.highlight_donation_dates()
-
-        # Aggiorna le informazioni del database
-        self.update_db_info()
 
         # Aggiungi scorciatoia da tastiera per il salvataggio
         save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
@@ -63,6 +66,16 @@ class MainWindow(QMainWindow):
         # Setup cloud monitoring
         self.observer = setup_cloud_monitoring(self)
 
+        # Inizializza il gestore anni
+        self.year_manager = YearManager()
+        self.year_manager.year_created.connect(self.on_year_created)
+        self.year_manager.year_changed.connect(self.on_year_changed)
+
+        # Aggiungi label per l'ultimo salvataggio
+        self.last_save_label = QLabel()
+        self.statusBar.addPermanentWidget(self.last_save_label)
+        self.update_last_save_info()
+
     def create_menu_bar(self):
         menubar = self.menuBar()
 
@@ -75,8 +88,8 @@ class MainWindow(QMainWindow):
         add_time_action.triggered.connect(self.show_time_entry_dialog)
         file_menu.addAction(add_time_action)
         
-        # Azione di salvataggio
-        save_action = QAction('Salva', self)
+        # Azione di salvataggio con icona
+        save_action = QAction(QIcon('assets/diskette.png'), 'Salva', self)
         save_action.setShortcut('Ctrl+S')
         save_action.triggered.connect(lambda: self.save_reservations(show_message=True))
         file_menu.addAction(save_action)
@@ -96,7 +109,8 @@ class MainWindow(QMainWindow):
         
         file_menu.addSeparator()
 
-        export_action = QAction('Esporta in DOCX', self)
+        export_action = QAction('Esporta in Word (.docx)', self)
+        export_action.setShortcut('Ctrl+W')
         export_action.triggered.connect(self.export_to_docx)
         file_menu.addAction(export_action)
 
@@ -150,31 +164,32 @@ class MainWindow(QMainWindow):
         tools_menu.addAction(statistics_action)
 
     def create_status_bar(self):
-        self.statusBar = self.statusBar()
+        """Crea la barra di stato"""
+        self.statusBar = QStatusBar()
+        self.setStatusBar(self.statusBar)
         
-        # Database info label (right-aligned)
-        self.db_info_label = QLabel()
-        self.db_info_label.setAlignment(Qt.AlignRight)
-        self.statusBar.addPermanentWidget(self.db_info_label)
+        # Label per il database corrente
+        self.db_label = QLabel()
+        self.statusBar.addPermanentWidget(self.db_label)
 
     def update_db_info(self):
+        """Aggiorna le informazioni del database mostrate nella barra di stato"""
         try:
-            db_path = get_db_path()
-            last_modified = datetime.now()  # Usa sempre l'ora corrente
-            last_modified_str = last_modified.strftime("%d/%m/%Y %H:%M:%S")
+            selected_date = self.calendar.selectedDate()
+            year = selected_date.year()
+            date_str = selected_date.toString("dd/MM/yyyy")
             
-            # Ottieni solo il nome della cartella contenente il database
-            db_location = os.path.basename(os.path.dirname(db_path))
+            # Ottieni il percorso del database
+            db_path = get_db_path(selected_date)
             
-            # Aggiungi info sulla sincronizzazione cloud
-            service = self.settings.value("cloud_service", "Locale")
-            sync_info = f" - Sincronizzato con {service}" if service != "Locale" else ""
-            
-            info_text = f"Database: {db_location} | Ultima modifica: {last_modified_str}{sync_info}"
-            self.db_info_label.setText(info_text)
+            if os.path.exists(os.path.dirname(db_path)):
+                self.db_label.setText(f"Database: {year} - {date_str}")
+            else:
+                self.db_label.setText(f"Database: {year} - {date_str} (Non esistente)")
+                
         except Exception as e:
-            print(f"Errore nell'aggiornamento delle informazioni del database: {str(e)}")
-            self.db_info_label.setText("Informazioni database non disponibili")
+            logger.error(f"Errore nell'aggiornamento delle info del database: {str(e)}")
+            self.db_label.setText("Errore info database")
 
     def create_new_database(self):
         reply = QMessageBox.question(self, 'Nuovo Database', 
@@ -187,70 +202,75 @@ class MainWindow(QMainWindow):
             self.load_default_times()
 
     def init_ui(self):
+        """Inizializza l'interfaccia utente"""
         central_widget = QWidget()
-        layout = QVBoxLayout()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
 
-        # Calendar for selecting donation days
+        # Toolbar con pulsanti
+        toolbar = QHBoxLayout()
+        
+        # Pulsante Salva con icona
+        save_button = QPushButton()
+        save_button.setIcon(QIcon('assets/diskette.png'))
+        save_button.setIconSize(QSize(24, 24))
+        save_button.setToolTip("Salva (Ctrl+S)")
+        save_button.clicked.connect(lambda: self.save_reservations(show_message=True))
+        save_button.setFixedSize(36, 36)
+        toolbar.addWidget(save_button)
+        
+        # Pulsante Elimina con icona
+        delete_button = QPushButton()
+        delete_button.setIcon(QIcon('assets/trash.png'))
+        delete_button.setIconSize(QSize(24, 24))
+        delete_button.setToolTip("Elimina prenotazione")
+        delete_button.clicked.connect(self.delete_reservation)
+        delete_button.setFixedSize(36, 36)
+        toolbar.addWidget(delete_button)
+        
+        toolbar.addStretch()  # Spazio flessibile
+        layout.addLayout(toolbar)
+
+        # Calendario
+        calendar_group = QGroupBox("Calendario")
+        calendar_layout = QVBoxLayout()
+        
         self.calendar = QCalendarWidget()
         self.calendar.setGridVisible(True)
-        self.calendar.selectionChanged.connect(self.load_reservations)
-        # Abilita il menu contestuale
-        self.calendar.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.calendar.customContextMenuRequested.connect(self.show_calendar_context_menu)
-        layout.addWidget(self.calendar)
+        self.calendar.selectionChanged.connect(self.on_date_changed)
+        calendar_layout.addWidget(self.calendar)
+        
+        calendar_group.setLayout(calendar_layout)
+        layout.addWidget(calendar_group)
 
-        # Table for managing appointments
-        self.table = QTableWidget()
-        self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels(["Orario", "Nome", "Cognome", 
-                                             "Prima Donazione", "Stato", ""])
-        self.table.setColumnWidth(0, 80)
-        self.table.setColumnWidth(1, 150)
-        self.table.setColumnWidth(2, 150)
-        self.table.setColumnWidth(3, 120)
-        self.table.setColumnWidth(4, 110)
-        self.table.setColumnWidth(5, 40)
-        layout.addWidget(self.table)
-
-        # Save button
-        save_button = QPushButton("Salva")
-        save_button.clicked.connect(self.save_reservations)
-        layout.addWidget(save_button)
-
-        central_widget.setLayout(layout)
-        self.setCentralWidget(central_widget)
-
-        # Load initial data
-        self.load_default_times()
+        # Widget Prenotazioni
+        self.reservations_widget = ReservationsWidget(self)
+        layout.addWidget(self.reservations_widget)
 
     def apply_theme(self):
-        theme = self.settings.value("theme", "Scuro")
-        palette = QPalette()
+        """Applica il tema all'applicazione"""
+        # Gestisci la migrazione dal vecchio al nuovo sistema di temi
+        theme_id = self.settings.value("theme", "light")
+        if theme_id == "Scuro":
+            theme_id = "dark"
+            self.settings.setValue("theme", "dark")
+        elif theme_id == "Chiaro":
+            theme_id = "light"
+            self.settings.setValue("theme", "light")
         
-        if theme == "Scuro":
-            # Tema scuro
-            palette.setColor(QPalette.Window, QColor("#2b2b2b"))
-            palette.setColor(QPalette.WindowText, QColor("#ffffff"))
-            palette.setColor(QPalette.Base, QColor("#3b3b3b"))
-            palette.setColor(QPalette.AlternateBase, QColor("#353535"))
-            palette.setColor(QPalette.Text, QColor("#ffffff"))
-            palette.setColor(QPalette.Button, QColor(self.primary_color))
-            palette.setColor(QPalette.ButtonText, QColor("#ffffff"))
-            palette.setColor(QPalette.Highlight, QColor(self.primary_color))
-            palette.setColor(QPalette.HighlightedText, QColor("#ffffff"))
-        else:
-            # Tema chiaro
-            palette.setColor(QPalette.Window, QColor("#f0f0f0"))
-            palette.setColor(QPalette.WindowText, QColor("#000000"))
-            palette.setColor(QPalette.Base, QColor("#ffffff"))
-            palette.setColor(QPalette.AlternateBase, QColor("#f7f7f7"))
-            palette.setColor(QPalette.Text, QColor("#000000"))
-            palette.setColor(QPalette.Button, QColor(self.primary_color))
-            palette.setColor(QPalette.ButtonText, QColor("#ffffff"))
-            palette.setColor(QPalette.Highlight, QColor(self.primary_color))
-            palette.setColor(QPalette.HighlightedText, QColor("#ffffff"))
-
-        self.setPalette(palette)
+        # Assicurati che il tema esista, altrimenti usa quello chiaro
+        if theme_id not in THEMES:
+            theme_id = "light"
+            self.settings.setValue("theme", "light")
+        
+        theme = THEMES[theme_id]
+        
+        # Applica il foglio di stile
+        self.setStyleSheet(theme.get_stylesheet())
+        
+        # Aggiorna anche il widget delle prenotazioni
+        if hasattr(self, 'reservations_widget'):
+            self.reservations_widget.setStyleSheet(theme.get_stylesheet())
 
     def load_default_times(self):
         # Genera tutti gli orari possibili dalle 7:50 alle 12:10 con intervalli di 5 minuti
@@ -403,250 +423,116 @@ class MainWindow(QMainWindow):
             self.table.setCellWidget(row, 5, container)
 
     def export_to_docx(self):
+        """Esporta i dati in formato Word"""
         try:
-            # Ottieni il percorso dove salvare il file
-            selected_date = self.calendar.selectedDate()
-            default_name = f"prenotazioni_{selected_date.toString('dd_MM_yyyy')}.docx"
-            file_path, _ = QFileDialog.getSaveFileName(
-                self, 
-                "Esporta in DOCX",
-                default_name,
-                "Documenti Word (*.docx)"
-            )
+            date = self.calendar.selectedDate().toString("yyyy-MM-dd")
+            table = self.reservations_widget.get_table()
             
+            # Raccogli i dati dalla tabella
+            data = []
+            for row in range(table.rowCount()):
+                time = table.item(row, 0).text()
+                name = table.item(row, 1).text() if table.item(row, 1) else ""
+                surname = table.item(row, 2).text() if table.item(row, 2) else ""
+                first_donation = table.cellWidget(row, 3).currentText()
+                stato = table.cellWidget(row, 4).currentText()
+                
+                if name.strip() or surname.strip():
+                    data.append([time, name, surname, first_donation, stato])
+            
+            # Esporta
+            file_path = export_to_docx(date, data)
             if file_path:
-                # Raccogli i dati dalla tabella
-                table_data = []
-                for row in range(self.table.rowCount()):
-                    orario = self.table.item(row, 0).text() if self.table.item(row, 0) else ""
-                    nome = self.table.item(row, 1).text() if self.table.item(row, 1) else ""
-                    cognome = self.table.item(row, 2).text() if self.table.item(row, 2) else ""
-                    first_combo = self.table.cellWidget(row, 3)
-                    prima_donazione = first_combo.currentText() if first_combo else "No"
-                    
-                    if nome or cognome:  # Includi solo le righe con prenotazioni
-                        table_data.append((orario, nome, cognome, prima_donazione))
-                
-                # Ottieni il percorso del logo se presente
-                logo_path = self.settings.value("print_logo")
-                
-                # Esporta il documento
-                export_to_docx(file_path, table_data, logo_path)
-                
-                # Mostra messaggio di successo
-                self.statusBar.showMessage(f"File esportato con successo: {file_path}", 3000)
-                
-                # Aggiungi alla cronologia
-                details = f"File: {file_path}"
-                add_history_entry("Esportazione DOCX", details)
-                
-                # Aggiorna info database
-                self.update_db_info()
+                QMessageBox.information(
+                    self,
+                    "Esportazione Completata",
+                    f"File salvato in:\n{file_path}"
+                )
                 
         except Exception as e:
-            QMessageBox.warning(self, "Errore", f"Errore durante l'esportazione: {str(e)}")
-            print(f"Errore durante l'esportazione: {str(e)}")
+            logger.error(f"Errore nell'esportazione: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nell'esportazione: {str(e)}"
+            )
 
     def print_table(self):
-        """Apre il dialogo di stampa e stampa il database corrente"""
-        from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
-        from PyQt5.QtGui import QTextDocument
-        
-        # Crea il documento da stampare
-        document = QTextDocument()
-        html_content = self.get_printable_content()
-        document.setHtml(html_content)
-        
-        # Crea e configura la stampante
-        printer = QPrinter(QPrinter.HighResolution)
-        printer.setPageSize(QPrinter.A4)
-        
-        # Mostra il dialogo di stampa
-        dialog = QPrintDialog(printer, self)
-        if dialog.exec_() == QDialog.Accepted:
-            document.print_(printer)
-
-    def get_printable_content(self):
-        """Genera il contenuto HTML per la stampa"""
-        selected_date = self.calendar.selectedDate()
-        date_str = selected_date.toString("dddd d MMMM yyyy")  # es: "Lunedì 15 Gennaio 2024"
-        current_datetime = datetime.now().strftime("%d/%m/%Y alle %H:%M:%S")
-        
-        # Stile CSS per il documento
-        style = """
-            <style>
-                @font-face {
-                    font-family: 'SF Pro Display';
-                    src: local('SF Pro Display');
-                }
-                body { font-family: 'SF Pro Display', Arial, sans-serif; }
-                table { 
-                    width: 100%; 
-                    border-collapse: collapse; 
-                    margin-top: 20px;
-                    margin-bottom: 40px;
-                }
-                th, td { 
-                    border: 1px solid black; 
-                    padding: 8px; 
-                    text-align: left;
-                }
-                th { background-color: #f2f2f2; }
-                .title { 
-                    text-align: center;
-                    color: #ff0000;
-                    font-weight: bold;
-                    font-size: 86px;
-                    margin-bottom: 10px;
-                }
-                .date { 
-                    text-align: center;
-                    color: #ff0000;
-                    font-weight: bold;
-                    font-size: 90px;
-                    margin-bottom: 30px;
-                }
-                .footer {
-                    text-align: right;
-                    font-size: 40px;
-                    color: #666666;
-                    margin-top: 600px;
-                }
-            </style>
-        """
-        
-        # Aggiungi il logo se presente
-        logo_html = ""
-        logo_path = self.settings.value("print_logo")
-        if logo_path and os.path.exists(logo_path):
-            logo_html = f"""
-                <div style='position: absolute; top: 20px; left: 20px;'>
-                    <img src='{logo_path}' style='max-width: 150px; max-height: 150px;'>
-                </div>
-            """
-        
-        # Intestazione
-        header = f"""
-            <div class='title'>Prenotazioni</div>
-            <div class='date'>{date_str}</div>
-        """
-        
-        # Tabella (rimossa la colonna Stato)
-        table = "<table><tr><th>Orario</th><th>Nome</th><th>Cognome</th><th>Prima Donazione</th></tr>"
-        
-        # Raccogli i dati dalla tabella
-        rows = []
-        for row in range(self.table.rowCount()):
-            orario = self.table.item(row, 0).text() if self.table.item(row, 0) else ""
-            nome = self.table.item(row, 1).text() if self.table.item(row, 1) else ""
-            cognome = self.table.item(row, 2).text() if self.table.item(row, 2) else ""
-            combo = self.table.cellWidget(row, 3)
-            prima_donazione = combo.currentText() if combo else "No"
+        """Stampa la tabella delle prenotazioni"""
+        try:
+            printer = QPrinter(QPrinter.HighResolution)
+            dialog = QPrintDialog(printer, self)
             
-            if nome or cognome:  # Includi solo le righe con prenotazioni
-                rows.append(f"<tr><td>{orario}</td><td>{nome}</td><td>{cognome}</td><td>{prima_donazione}</td></tr>")
-        
-        table += "\n".join(rows)
-        table += "</table>"
-        
-        # Footer
-        footer = f"""
-            <div class='footer'>Creato da Hemodos il {current_datetime}</div>
-        """
-        
-        # Assembla il documento completo
-        return f"{style}\n{logo_html}\n{header}\n{table}\n{footer}"
+            if dialog.exec_() == QPrintDialog.Accepted:
+                date = self.calendar.selectedDate().toString("yyyy-MM-dd")
+                table = self.reservations_widget.get_table()
+                
+                # Raccogli i dati dalla tabella
+                data = []
+                for row in range(table.rowCount()):
+                    time = table.item(row, 0).text()
+                    name = table.item(row, 1).text() if table.item(row, 1) else ""
+                    surname = table.item(row, 2).text() if table.item(row, 2) else ""
+                    first_donation = table.cellWidget(row, 3).currentText()
+                    stato = table.cellWidget(row, 4).currentText()
+                    
+                    if name.strip() or surname.strip():
+                        data.append([time, name, surname, first_donation, stato])
+                
+                print_data(printer, date, data)
+                
+        except Exception as e:
+            logger.error(f"Errore nella stampa: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nella stampa: {str(e)}"
+            )
 
     def load_reservations(self):
+        """Carica le prenotazioni per la data selezionata"""
         try:
-            self.table.clearContents()
-            self.load_default_times()
-            
-            selected_date = self.calendar.selectedDate().toString("yyyy-MM-dd")
-            reservations = get_reservations(selected_date)
-            
-            for orario, nome, cognome, first_donation, stato in reservations:
-                for row in range(self.table.rowCount()):
-                    if self.table.item(row, 0) and self.table.item(row, 0).text() == orario:
-                        self.table.setItem(row, 1, QTableWidgetItem(nome))
-                        self.table.setItem(row, 2, QTableWidgetItem(cognome))
-                        
-                        first_combo = QComboBox()
-                        first_combo.addItems(["No", "Sì"])
-                        
-                        # Gestione orari dopo le 10:00
-                        time_obj = QTime.fromString(orario, "HH:mm")
-                        if time_obj >= QTime(10, 0):
-                            first_combo.setCurrentText("No")
-                            first_combo.setEnabled(False)
-                            first_combo.setStyleSheet("""
-                                QComboBox {
-                                    background-color: #f0f0f0;
-                                    color: #666666;
-                                }
-                            """)
-                        else:
-                            first_combo.setCurrentText("Sì" if first_donation else "No")
-                        
-                        self.table.setCellWidget(row, 3, first_combo)
-                        
-                        stato_combo = QComboBox()
-                        stato_combo.addItems([
-                            "Non effettuata",
-                            "Sì",
-                            "No",
-                            "Non presentato",
-                            "Donazione interrotta"
-                        ])
-                        stato_combo.setCurrentText(stato)
-                        self.table.setCellWidget(row, 4, stato_combo)
-                        break
-                    
+            selected_date = self.calendar.selectedDate()
+            self.reservations_widget.load_reservations(selected_date)
         except Exception as e:
-            print(f"Errore nel caricamento delle prenotazioni: {str(e)}")
+            logger.error(f"Errore nel caricamento delle prenotazioni: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nel caricamento delle prenotazioni: {str(e)}"
+            )
 
-    def save_reservations(self, show_message=True, is_auto_save=False, is_closing=False):
-        selected_date = self.calendar.selectedDate().toString("yyyy-MM-dd")
+    def save_reservations(self, show_message=True):
+        """Salva lo stato corrente delle prenotazioni"""
         try:
-            # Salva tutte le righe della tabella
-            for row in range(self.table.rowCount()):
-                orario_item = self.table.item(row, 0)
-                nome_item = self.table.item(row, 1)
-                cognome_item = self.table.item(row, 2)
-                first_donation_combo = self.table.cellWidget(row, 3)
-                status_combo = self.table.cellWidget(row, 4)
-
-                if orario_item:
-                    orario = orario_item.text()
-                    nome = nome_item.text() if nome_item else ""
-                    cognome = cognome_item.text() if cognome_item else ""
-                    first_donation = first_donation_combo.currentText() == "Sì" if first_donation_combo else False
-                    donation_status = status_combo.currentText() if status_combo else "Non effettuata"
-
-                    # Salva la prenotazione e lo stato
-                    add_reservation(selected_date, orario, nome, cognome, first_donation)
-                    save_donation_status(selected_date, orario, donation_status)
-
-            # Aggiungi alla cronologia solo messaggi di sistema appropriati
-            if is_closing:
-                add_history_entry("Sistema", "Chiusura applicazione e salvataggio dati")
-            elif is_auto_save:
-                add_history_entry("Sistema", "Salvataggio automatico")
-            elif show_message:
-                add_history_entry("Sistema", f"Salvataggio manuale per la data {selected_date}")
-
+            table = self.reservations_widget.get_table()
+            date = self.calendar.selectedDate().toString("yyyy-MM-dd")
+            
+            for row in range(table.rowCount()):
+                time = table.item(row, 0).text()
+                name = table.item(row, 1).text() if table.item(row, 1) else ""
+                surname = table.item(row, 2).text() if table.item(row, 2) else ""
+                first_donation = table.cellWidget(row, 3).currentText() == "Sì"
+                stato = table.cellWidget(row, 4).currentText()
+                
+                if name.strip() or surname.strip():
+                    add_reservation(date, time, name, surname, first_donation)
+                    save_donation_status(date, time, stato)
+            
+            # Aggiorna l'ora dell'ultimo salvataggio
+            current_time = datetime.now().strftime("%H:%M:%S")
+            self.settings.setValue("last_save_time", current_time)
+            self.update_last_save_info()
+            
             if show_message:
-                self.statusBar.showMessage("Prenotazioni salvate con successo", 3000)
-            
-            # Aggiorna info database
-            self.update_db_info()
-            
+                self.statusBar.showMessage("Salvataggio completato", 3000)
+                
             return True
             
         except Exception as e:
+            logger.error(f"Errore nel salvataggio: {str(e)}")
             if show_message:
-                QMessageBox.warning(self, "Errore", f"Errore durante il salvataggio: {str(e)}")
-            print(f"Errore durante il salvataggio: {str(e)}")
+                QMessageBox.critical(self, "Errore", f"Errore nel salvataggio: {str(e)}")
             return False
 
     def show_settings(self):
@@ -658,32 +544,35 @@ class MainWindow(QMainWindow):
             self.setup_autosave()
 
     def highlight_donation_dates(self):
+        """Evidenzia le date di donazione nel calendario"""
         try:
-            # Prima rimuovi tutti i formati esistenti
+            # Resetta il formato delle date
             self.calendar.setDateTextFormat(QDate(), QTextCharFormat())
+            
+            # Ottieni l'anno corrente dal calendario
+            current_year = self.calendar.selectedDate().year()
             
             # Formato per le date di donazione
             donation_format = QTextCharFormat()
             donation_format.setBackground(QColor("#c2fc03"))  # Verde lime
             donation_format.setForeground(QColor("#000000"))  # Testo nero
             
-            # Ottieni l'anno corrente
-            current_date = self.calendar.selectedDate()
-            year = current_date.year()
+            # Ottieni le date di donazione per l'anno corrente
+            dates = get_donation_dates(current_year)
             
-            # Evidenzia le date di donazione
-            dates = get_donation_dates(year)
+            # Applica il formato alle date
             for date_str in dates:
                 date = QDate.fromString(date_str, "yyyy-MM-dd")
                 if date.isValid():
                     self.calendar.setDateTextFormat(date, donation_format)
-            
-            # Forza l'aggiornamento visivo
-            self.calendar.updateCell(current_date)
-            self.calendar.updateCells()
-            
+                
         except Exception as e:
-            print(f"Errore nell'evidenziazione delle date: {str(e)}")
+            logger.error(f"Errore nell'evidenziazione delle date: {str(e)}")
+            QMessageBox.warning(
+                self,
+                "Errore",
+                f"Errore nell'evidenziazione delle date di donazione: {str(e)}"
+            )
 
     def show_history(self):
         dialog = HistoryDialog(self)
@@ -701,13 +590,59 @@ class MainWindow(QMainWindow):
             "Database SQLite (*.db)"
         )
         if file_path:
-            # Prima rimuovi il riferimento al database precedente
-            self.settings.remove("last_database")
-            # Poi imposta il nuovo database
-            self.settings.setValue("last_database", file_path)
-            self.init_db()
-            self.load_default_times()
-            self.update_db_info()
+            filename = os.path.basename(file_path)
+            
+            try:
+                # Gestione database prenotazioni giornaliere
+                if filename.startswith("prenotazioni_"):
+                    # Estrai giorno e mese dal nome del file
+                    day = int(filename.split("_")[1])
+                    month = int(filename.split("_")[2].split(".")[0])
+                    year = QDate.currentDate().year()
+                    
+                    # Imposta la data nel calendario
+                    date = QDate(year, month, day)
+                    self.calendar.setSelectedDate(date)
+                    # Carica le prenotazioni per quella data
+                    self.load_reservations()
+                    
+                # Gestione database date donazione
+                elif filename.startswith("date_donazione_"):
+                    # Estrai l'anno dal nome del file
+                    year = int(filename.split("_")[2].split(".")[0])
+                    # Apri la finestra impostazioni sulla tab delle date
+                    settings_dialog = SettingsDialog(self)
+                    settings_dialog.tab_widget.setCurrentIndex(0)  # Tab Generali
+                    settings_dialog.exec_()
+                    
+                # Gestione database cronologia
+                elif filename.startswith("cronologia_"):
+                    # Estrai l'anno dal nome del file
+                    year = int(filename.split("_")[1].split(".")[0])
+                    # Apri la finestra cronologia
+                    history_dialog = HistoryDialog(self)
+                    # Imposta l'anno nel combo box della cronologia
+                    index = history_dialog.year_combo.findText(str(year))
+                    if index >= 0:
+                        history_dialog.year_combo.setCurrentIndex(index)
+                    history_dialog.exec_()
+                    
+                # Gestione database statistiche
+                elif filename.startswith("statistiche_"):
+                    # Apri la finestra statistiche
+                    statistics_dialog = StatisticsDialog(self)
+                    statistics_dialog.exec_()
+                
+                # Aggiorna le informazioni del database
+                self.settings.setValue("last_database", file_path)
+                self.update_db_info()
+                
+            except Exception as e:
+                QMessageBox.warning(
+                    self,
+                    "Errore",
+                    f"Errore nell'apertura del database:\n{str(e)}"
+                )
 
     def setup_autosave(self):
         """Configura il timer per il salvataggio automatico"""
@@ -728,9 +663,10 @@ class MainWindow(QMainWindow):
         """Esegue il salvataggio automatico"""
         try:
             self.save_reservations(show_message=False)
-            print(f"Autosave eseguito: {datetime.now().strftime('%H:%M:%S')}")
+            self.statusBar.showMessage("Autosave completato", 2000)
+            logger.info(f"Autosave eseguito: {datetime.now().strftime('%H:%M:%S')}")
         except Exception as e:
-            print(f"Errore durante l'autosave: {str(e)}")
+            logger.error(f"Errore durante l'autosave: {str(e)}")
 
     def reload_database(self):
         """Ricarica i dati quando il database viene modificato esternamente"""
@@ -875,15 +811,14 @@ class MainWindow(QMainWindow):
             print(f"Errore nell'aggiornamento del formato delle date: {str(e)}")
 
     def show_time_entry_dialog(self):
-        selected_date = self.calendar.selectedDate().toString("yyyy-MM-dd")
-        dialog = TimeEntryDialog(self, selected_date)
+        """Mostra il dialog per l'inserimento degli orari"""
+        dialog = TimeEntryDialog(self)
         if dialog.exec_() == QDialog.Accepted:
-            # Ricarica la tabella per mostrare il nuovo orario
-            self.load_reservations()
-            # Aggiorna anche il calendario nel caso la data non fosse già evidenziata
-            self.highlight_donation_dates()
-            # Aggiorna le informazioni del database
-            self.update_db_info()
+            time = dialog.get_time()
+            date = self.calendar.selectedDate().toString("yyyy-MM-dd")
+            if add_donation_time(date, time):
+                self.load_reservations()
+                self.highlight_donation_dates()
 
     def show_statistics(self):
         dialog = StatisticsDialog(self)
@@ -965,3 +900,255 @@ class MainWindow(QMainWindow):
         from gui.dialogs.manual_dialog import ManualDialog
         dialog = ManualDialog(self)
         dialog.exec_()
+
+    def on_date_changed(self):
+        """Gestisce il cambio di data nel calendario"""
+        try:
+            selected_date = self.calendar.selectedDate()
+            
+            # Gestione cambio anno se necessario
+            if self.handle_year_change(selected_date):
+                # Inizializza il database per la data selezionata se non esiste
+                db_path = get_db_path(selected_date)
+                if not os.path.exists(db_path):
+                    init_db(specific_date=selected_date)
+                
+                # Carica le prenotazioni per la data selezionata
+                self.reservations_widget.load_reservations(selected_date)
+                
+                # Aggiorna l'evidenziazione delle date
+                self.highlight_donation_dates()
+                
+                # Aggiorna le info del database
+                self.update_db_info()
+                
+                # Mostra messaggio nella barra di stato
+                self.statusBar.showMessage(
+                    f"Database caricato: {selected_date.toString('dd/MM/yyyy')}", 
+                    3000
+                )
+                
+        except Exception as e:
+            logger.error(f"Errore nel cambio data: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nel cambio data: {str(e)}"
+            )
+
+    def handle_year_change(self, selected_date):
+        """Gestisce il cambio di anno, restituisce True se l'operazione è riuscita"""
+        if selected_date.year() != self.last_valid_date.year():
+            year_path = os.path.join(self.get_base_path(), str(selected_date.year()))
+            
+            if not os.path.exists(year_path):
+                reply = QMessageBox.question(
+                    self,
+                    "Nuovo Anno",
+                    f"Stai passando all'anno {selected_date.year()}.\nVuoi creare la struttura necessaria?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                
+                if reply == QMessageBox.Yes:
+                    try:
+                        self.year_manager.create_year_structure(selected_date.year())
+                        self.year_manager.year_changed.emit(selected_date.year())
+                        self.last_valid_date = selected_date
+                        return True
+                    except Exception as e:
+                        QMessageBox.critical(self, "Errore", str(e))
+                        self.calendar.setSelectedDate(self.last_valid_date)
+                        return False
+                else:
+                    self.calendar.setSelectedDate(self.last_valid_date)
+                    return False
+        
+        self.last_valid_date = selected_date
+        return True
+
+    def get_base_path(self):
+        """Ottiene il percorso base in base alle impostazioni"""
+        service = self.settings.value("cloud_service", "Locale")
+        if service == "Locale":
+            return os.path.expanduser("~/Documents/Hemodos")
+        else:
+            cloud_path = self.settings.value("cloud_path", "")
+            return os.path.join(cloud_path, "Hemodos")
+
+    def on_year_created(self, year):
+        """Gestisce la creazione di un nuovo anno"""
+        QMessageBox.information(
+            self,
+            "Successo",
+            f"Struttura per l'anno {year} creata con successo!"
+        )
+        self.update_db_info()
+
+    def on_year_changed(self, year):
+        """Gestisce il cambio di anno"""
+        try:
+            # Ottieni il percorso base corretto
+            settings = QSettings('Hemodos', 'DatabaseSettings')
+            service = settings.value("cloud_service", "Locale")
+            
+            if service == "Locale":
+                base_path = os.path.expanduser("~/Documents/Hemodos")
+            else:
+                cloud_path = settings.value("cloud_path", "")
+                base_path = os.path.join(cloud_path, "Hemodos")
+            
+            # Aggiorna il database corrente usando il percorso corretto
+            year_path = os.path.join(base_path, str(year))
+            db_path = os.path.join(year_path, f"hemodos_{year}.db")
+            self.settings.setValue("last_database", db_path)
+            
+            # Aggiorna la vista
+            self.load_reservations()
+            self.highlight_donation_dates()
+            self.update_db_info()
+            
+            # Mostra messaggio nella barra di stato
+            self.statusBar.showMessage(f"Anno cambiato: {year}", 3000)
+            logger.info(f"Cambio anno effettuato: {year}")
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nel cambio di anno: {str(e)}"
+            )
+            logger.error(f"Errore nel cambio di anno: {str(e)}")
+
+    def add_reservation_to_table(self, time, name, surname, first_donation, stato):
+        """Aggiunge una prenotazione alla tabella"""
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        
+        # Aggiungi orario
+        self.table.setItem(row, 0, QTableWidgetItem(time))
+        
+        # Aggiungi nome e cognome
+        self.table.setItem(row, 1, QTableWidgetItem(name))
+        self.table.setItem(row, 2, QTableWidgetItem(surname))
+        
+        # Combo box per prima donazione
+        first_combo = QComboBox()
+        first_combo.addItems(["No", "Sì"])
+        
+        # Gestione orari dopo le 10:00
+        time_obj = QTime.fromString(time, "HH:mm")
+        if time_obj >= QTime(10, 0):
+            first_combo.setCurrentText("No")
+            first_combo.setEnabled(False)
+            first_combo.setStyleSheet("""
+                QComboBox {
+                    background-color: #f0f0f0;
+                    color: #666666;
+                }
+            """)
+        else:
+            first_combo.setCurrentText("Sì" if first_donation else "No")
+        
+        self.table.setCellWidget(row, 3, first_combo)
+        
+        # Combo box per lo stato
+        stato_combo = QComboBox()
+        stato_combo.addItems([
+            "Non effettuata",
+            "Sì",
+            "No",
+            "Non presentato",
+            "Donazione interrotta"
+        ])
+        stato_combo.setCurrentText(stato)
+        self.table.setCellWidget(row, 4, stato_combo)
+
+    def update_last_save_info(self):
+        """Aggiorna le informazioni sull'ultimo salvataggio"""
+        last_save = self.settings.value("last_save_time", "Mai")
+        self.last_save_label.setText(f"Ultimo salvataggio: {last_save}")
+
+    def delete_reservation(self):
+        """Elimina la prenotazione selezionata"""
+        try:
+            table = self.reservations_widget.get_table()
+            current_row = table.currentRow()
+            
+            if current_row >= 0:
+                time = table.item(current_row, 0).text()
+                name = table.item(current_row, 1).text() if table.item(current_row, 1) else ""
+                surname = table.item(current_row, 2).text() if table.item(current_row, 2) else ""
+                
+                if name.strip() or surname.strip():
+                    reply = QMessageBox.question(
+                        self,
+                        'Conferma eliminazione',
+                        f'Vuoi davvero eliminare la prenotazione delle {time}?',
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.No
+                    )
+                    
+                    if reply == QMessageBox.Yes:
+                        date = self.calendar.selectedDate().toString("yyyy-MM-dd")
+                        if delete_reservation(date, time):
+                            # Pulisci le celle ma mantieni l'orario
+                            table.setItem(current_row, 1, QTableWidgetItem(""))
+                            table.setItem(current_row, 2, QTableWidgetItem(""))
+                            
+                            # Reimposta i combobox
+                            first_combo = table.cellWidget(current_row, 3)
+                            first_combo.setCurrentText("No")
+                            
+                            stato_combo = table.cellWidget(current_row, 4)
+                            stato_combo.setCurrentText("Non effettuata")
+                            
+                            self.statusBar.showMessage("Prenotazione eliminata", 3000)
+                            
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Attenzione",
+                        "Seleziona una prenotazione da eliminare"
+                    )
+                    
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Attenzione",
+                    "Seleziona una prenotazione da eliminare"
+                )
+                
+        except Exception as e:
+            logger.error(f"Errore nell'eliminazione della prenotazione: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nell'eliminazione della prenotazione: {str(e)}"
+            )
+
+    def load_current_day_database(self):
+        """Carica il database del giorno corrente"""
+        try:
+            current_date = QDate.currentDate()
+            # Inizializza il database se non esiste
+            db_path = get_db_path(current_date)
+            if not os.path.exists(db_path):
+                init_db(specific_date=current_date)
+            
+            # Imposta la data corrente nel calendario
+            self.calendar.setSelectedDate(current_date)
+            
+            # Carica le prenotazioni
+            self.reservations_widget.load_reservations(current_date)
+            
+            # Aggiorna le info del database
+            self.update_db_info()
+            
+        except Exception as e:
+            logger.error(f"Errore nel caricamento del database giornaliero: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nel caricamento del database giornaliero: {str(e)}"
+            )

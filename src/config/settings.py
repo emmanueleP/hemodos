@@ -12,43 +12,52 @@ from core.database import (add_donation_date, get_donation_dates, delete_donatio
 import os
 import shutil
 from datetime import datetime
+import sqlite3
+from core.year_manager import YearManager
+from core.themes import THEMES
 
 class SettingsDialog(HemodosDialog):
     def __init__(self, parent=None):
         super().__init__(parent, "Impostazioni")
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
         self.parent = parent
+        self.year_manager = YearManager()
+        self.year_manager.year_created.connect(self.on_year_created)
         self.init_ui()
 
     def init_ui(self):
         # Create tab widget
-        tab_widget = QTabWidget()
+        self.tab_widget = QTabWidget()
         
         # Generali tab (Date di donazione)
         general_tab = self.init_general_tab()
-        tab_widget.addTab(general_tab, "Generali")
+        self.tab_widget.addTab(general_tab, "Generali")
+        
+        # Gestione Anni tab
+        years_tab = self.init_years_tab()
+        self.tab_widget.addTab(years_tab, "Gestione Anni")
         
         # Cloud Storage tab
         cloud_tab = self.init_cloud_tab()
-        tab_widget.addTab(cloud_tab, "Cloud Storage")
+        self.tab_widget.addTab(cloud_tab, "Cloud Storage")
         
         # Appearance tab
         appearance_tab = self.init_appearance_tab()
-        tab_widget.addTab(appearance_tab, "Aspetto")
+        self.tab_widget.addTab(appearance_tab, "Aspetto")
         
         # Saving Options tab
         saving_tab = self.init_saving_tab()
-        tab_widget.addTab(saving_tab, "Salvataggio")
+        self.tab_widget.addTab(saving_tab, "Salvataggio")
         
         # Print tab
         print_tab = self.init_print_tab()
-        tab_widget.addTab(print_tab, "Stampa")
+        self.tab_widget.addTab(print_tab, "Logo")
 
         # Aggiornamento tab
         update_tab = self.init_update_tab()
-        tab_widget.addTab(update_tab, "Aggiornamento")
+        self.tab_widget.addTab(update_tab, "Aggiornamento")
 
-        self.content_layout.addWidget(tab_widget)
+        self.content_layout.addWidget(self.tab_widget)
         
         # Initialize path based on current service
         self.on_service_changed(self.cloud_service.currentText())
@@ -157,17 +166,48 @@ class SettingsDialog(HemodosDialog):
         appearance_tab = QWidget()
         layout = QVBoxLayout()
         
+        # Tema
         theme_group = QGroupBox("Tema")
-        theme_layout = QFormLayout()
+        theme_layout = QVBoxLayout()
+        
         self.theme_combo = QComboBox()
-        self.theme_combo.addItems(["Scuro", "Chiaro"])
-        self.theme_combo.setCurrentText(self.settings.value("theme", "Scuro"))
-        theme_layout.addRow("Seleziona tema:", self.theme_combo)
+        for theme_id, theme in THEMES.items():
+            self.theme_combo.addItem(theme.name, theme_id)
+        
+        # Gestisci la migrazione dal vecchio al nuovo sistema di temi
+        current_theme = self.settings.value("theme", "light")
+        if current_theme == "Scuro":
+            current_theme = "dark"
+            self.settings.setValue("theme", "dark")
+        elif current_theme == "Chiaro":
+            current_theme = "light"
+            self.settings.setValue("theme", "light")
+        
+        # Imposta il tema corrente
+        index = self.theme_combo.findData(current_theme)
+        if index >= 0:
+            self.theme_combo.setCurrentIndex(index)
+        else:
+            # Se il tema non esiste, usa quello chiaro
+            index = self.theme_combo.findData("light")
+            self.theme_combo.setCurrentIndex(index)
+            self.settings.setValue("theme", "light")
+        
+        self.theme_combo.currentIndexChanged.connect(self.on_theme_changed)
+        theme_layout.addWidget(self.theme_combo)
         theme_group.setLayout(theme_layout)
         layout.addWidget(theme_group)
         
         appearance_tab.setLayout(layout)
         return appearance_tab
+
+    def on_theme_changed(self, index):
+        theme_id = self.theme_combo.currentData()
+        self.settings.setValue("theme", theme_id)
+        
+        # Applica il tema alla finestra principale
+        if self.parent:
+            self.parent.apply_theme()
 
     def init_cloud_tab(self):
         cloud_tab = QWidget()
@@ -331,24 +371,46 @@ class SettingsDialog(HemodosDialog):
         general_tab = QWidget()
         layout = QVBoxLayout()
 
-        # Anno corrente (in base al database aperto o alla data)
-        self.current_year = self.get_current_year()
-        year_label = QLabel(f"Anno: {self.current_year}")
-        year_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        layout.addWidget(year_label)
+        # Selettore Anno
+        year_group = QGroupBox("Seleziona Anno")
+        year_layout = QHBoxLayout()
+        
+        self.year_combo = QComboBox()
+        # Temporaneamente disconnetti il segnale fino a quando tutti i widget sono creati
+        # self.year_combo.currentTextChanged.connect(self.on_year_changed)
+        
+        # Carica tutti gli anni disponibili dai file date_donazione
+        base_path = os.path.dirname(get_db_path())
+        available_years = []
+        for filename in os.listdir(base_path):
+            if filename.startswith("date_donazione_") and filename.endswith(".db"):
+                try:
+                    year = int(filename.split("_")[2].split(".")[0])
+                    available_years.append(year)
+                except:
+                    continue
+        
+        # Se non ci sono anni disponibili, usa l'anno corrente
+        if not available_years:
+            available_years = [datetime.now().year]
+        
+        # Popola il combo box con gli anni disponibili
+        for year in sorted(available_years, reverse=True):
+            self.year_combo.addItem(str(year))
+        
+        year_layout.addWidget(QLabel("Anno:"))
+        year_layout.addWidget(self.year_combo)
+        year_group.setLayout(year_layout)
+        layout.addWidget(year_group)
 
-        # Date di donazione
-        dates_group = QGroupBox(f"Date di Donazione {self.current_year}")
+        # Date di donazione per l'anno selezionato
+        dates_group = QGroupBox("Date di Donazione")
         dates_layout = QHBoxLayout()
 
         # Calendario
         calendar_layout = QVBoxLayout()
         self.donation_calendar = QCalendarWidget()
         self.donation_calendar.setGridVisible(True)
-        
-        # Evidenzia le date già salvate nel calendario
-        self.highlight_saved_dates()
-        
         calendar_layout.addWidget(self.donation_calendar)
         dates_layout.addLayout(calendar_layout)
 
@@ -378,22 +440,43 @@ class SettingsDialog(HemodosDialog):
 
         general_tab.setLayout(layout)
         
-        # Carica le date esistenti nella lista
-        self.load_donation_dates_for_year(self.current_year)
+        # Ora che tutti i widget sono creati:
+        # 1. Evidenzia le date
+        self.highlight_saved_dates()
+        # 2. Carica le date per l'anno inizialmente selezionato
+        self.load_donation_dates_for_year(int(self.year_combo.currentText()))
+        # 3. Connetti il segnale del combo box
+        self.year_combo.currentTextChanged.connect(self.on_year_changed)
         
         return general_tab
 
+    def on_year_changed(self, year):
+        """Gestisce il cambio dell'anno selezionato"""
+        try:
+            year = int(year)
+            # Ricarica le date per il nuovo anno
+            self.load_donation_dates_for_year(year)
+            # Resetta e riapplica l'evidenziazione del calendario
+            self.donation_calendar.setDateTextFormat(QDate(), QTextCharFormat())
+            self.highlight_saved_dates()
+        except Exception as e:
+            QMessageBox.warning(self, "Errore", f"Errore nel caricamento delle date: {str(e)}")
+
     def highlight_saved_dates(self):
         """Evidenzia le date salvate nel calendario della tab Generali"""
-        donation_format = QTextCharFormat()
-        donation_format.setBackground(QColor("#c2fc03"))  # Verde lime
-        donation_format.setForeground(QColor("#000000"))  # Testo nero
-        
-        dates = get_donation_dates(self.current_year)
-        for date_str in dates:
-            date = QDate.fromString(date_str, "yyyy-MM-dd")
-            if date.isValid():
-                self.donation_calendar.setDateTextFormat(date, donation_format)
+        try:
+            year = int(self.year_combo.currentText())
+            donation_format = QTextCharFormat()
+            donation_format.setBackground(QColor("#c2fc03"))  # Verde lime
+            donation_format.setForeground(QColor("#000000"))  # Testo nero
+            
+            dates = get_donation_dates(year)
+            for date_str in dates:
+                date = QDate.fromString(date_str, "yyyy-MM-dd")
+                if date.isValid():
+                    self.donation_calendar.setDateTextFormat(date, donation_format)
+        except Exception as e:
+            print(f"Errore nell'evidenziazione delle date: {str(e)}")
 
     def get_current_year(self):
         # Prima prova a ottenere l'anno dal database aperto
@@ -501,3 +584,107 @@ class SettingsDialog(HemodosDialog):
             text += f"Stato: {entry['status']}\n\n"
         
         self.update_history.setText(text)
+
+    def init_years_tab(self):
+        """Inizializza il tab per la gestione degli anni"""
+        years_tab = QWidget()
+        layout = QVBoxLayout()
+        
+        # Gruppo per la creazione di un nuovo anno
+        new_year_group = QGroupBox("Crea Nuovo Anno")
+        new_year_layout = QVBoxLayout()
+        
+        # Selezione anno
+        year_layout = QHBoxLayout()
+        year_layout.addWidget(QLabel("Anno:"))
+        self.new_year_spin = QSpinBox()
+        current_year = datetime.now().year
+        self.new_year_spin.setRange(current_year, current_year + 5)  # Permetti fino a 5 anni nel futuro
+        self.new_year_spin.setValue(current_year + 1)
+        year_layout.addWidget(self.new_year_spin)
+        new_year_layout.addLayout(year_layout)
+        
+        # Opzioni
+        self.create_db_check = QCheckBox("Crea database principale")
+        self.create_db_check.setChecked(True)
+        new_year_layout.addWidget(self.create_db_check)
+        
+        self.create_dates_check = QCheckBox("Crea database date donazione")
+        self.create_dates_check.setChecked(True)
+        new_year_layout.addWidget(self.create_dates_check)
+        
+        self.create_history_check = QCheckBox("Crea database cronologia")
+        self.create_history_check.setChecked(True)
+        new_year_layout.addWidget(self.create_history_check)
+        
+        self.create_stats_check = QCheckBox("Crea database statistiche")
+        self.create_stats_check.setChecked(True)
+        new_year_layout.addWidget(self.create_stats_check)
+        
+        # Pulsante crea
+        create_btn = QPushButton("Crea Struttura Anno")
+        create_btn.clicked.connect(self.create_year_structure)
+        create_btn.setStyleSheet(self.button_style)
+        new_year_layout.addWidget(create_btn)
+        
+        new_year_group.setLayout(new_year_layout)
+        layout.addWidget(new_year_group)
+        
+        # Lista anni esistenti
+        existing_group = QGroupBox("Anni Esistenti")
+        existing_layout = QVBoxLayout()
+        
+        self.years_list = QListWidget()
+        self.load_existing_years()
+        existing_layout.addWidget(self.years_list)
+        
+        existing_group.setLayout(existing_layout)
+        layout.addWidget(existing_group)
+        
+        years_tab.setLayout(layout)
+        return years_tab
+
+    def load_existing_years(self):
+        """Carica la lista degli anni esistenti"""
+        self.years_list.clear()
+        base_path = os.path.dirname(get_db_path())
+        
+        if os.path.exists(base_path):
+            years = set()
+            for filename in os.listdir(base_path):
+                if os.path.isdir(os.path.join(base_path, filename)):
+                    try:
+                        year = int(filename)
+                        years.add(year)
+                    except ValueError:
+                        continue
+            
+            for year in sorted(years, reverse=True):
+                item = QListWidgetItem(str(year))
+                self.years_list.addItem(item)
+
+    def create_year_structure(self):
+        """Crea la struttura delle directory e dei database per il nuovo anno"""
+        year = self.new_year_spin.value()
+        
+        try:
+            self.year_manager.create_year_structure(year)
+            
+            # Aggiorna la lista degli anni
+            self.load_existing_years()
+            
+            # Aggiorna il combo box nella tab Generali
+            current_year = self.year_combo.currentText()
+            self.year_combo.addItem(str(year))
+            self.year_combo.setCurrentText(current_year)
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nella creazione della struttura: {str(e)}"
+            )
+    
+    def on_year_created(self, year):
+        """Gestisce la creazione di un nuovo anno"""
+        self.load_existing_years()  # Ricarica la lista degli anni

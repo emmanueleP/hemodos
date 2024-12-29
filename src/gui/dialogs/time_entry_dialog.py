@@ -8,7 +8,7 @@ from core.database import get_db_path, add_donation_time
 
 class TimeEntryDialog(HemodosDialog):
     def __init__(self, parent=None, selected_date=None):
-        super().__init__(parent, "Aggiungi Orario")
+        super().__init__(parent, "Inserisci Orario")
         self.selected_date = selected_date
         self.init_ui()
 

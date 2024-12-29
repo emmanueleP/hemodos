@@ -1,47 +1,39 @@
 import sqlite3
 from datetime import datetime
 import os
-from PyQt5.QtCore import QSettings, QThread, pyqtSignal
+from PyQt5.QtCore import QSettings, QThread, pyqtSignal, QDate
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from core.logger import logger
 import time
 
-def get_db_path(is_donation_dates=False, specific_date=None):
-    """
-    Ottiene il percorso del database.
-    is_donation_dates: se True, restituisce il percorso del database delle date di donazione
-    specific_date: se specificato, restituisce il percorso per le prenotazioni di quel giorno
-    """
+def get_db_path(specific_date=None):
+    """Ottiene il percorso del database corretto"""
     settings = QSettings('Hemodos', 'DatabaseSettings')
-    base_path = settings.value("cloud_path", "")
     service = settings.value("cloud_service", "Locale")
     
-    # Ottieni l'anno corrente
-    now = datetime.now()
-    year = str(now.year)
-    
-    # Imposta il percorso base
-    if not base_path or service == "Locale":
+    if service == "Locale":
         base_path = os.path.expanduser("~/Documents/Hemodos")
     else:
-        base_path = os.path.join(base_path, "Hemodos")
+        cloud_path = settings.value("cloud_path", "")
+        base_path = os.path.join(cloud_path, "Hemodos")
     
-    year_path = os.path.join(base_path, year)
-    os.makedirs(year_path, exist_ok=True)
-    
-    if is_donation_dates:
-        # Database delle date di donazione
-        return os.path.join(year_path, f"date_donazione_{year}.db")
-    elif specific_date:
-        # Estrai giorno e mese dalla data
-        date_obj = datetime.strptime(specific_date, "%Y-%m-%d")
-        day = date_obj.day
-        month = date_obj.month
-        # Database delle prenotazioni per il giorno specifico
-        return os.path.join(year_path, f"prenotazioni_{day:02d}_{month:02d}.db")
+    if specific_date:
+        # Assicurati che la directory dell'anno esista
+        year_path = os.path.join(base_path, str(specific_date.year()))
+        os.makedirs(year_path, exist_ok=True)
+        
+        # Crea il nome del file con giorno e mese
+        db_name = f"prenotazioni_{specific_date.day():02d}_{specific_date.month():02d}.db"
+        return os.path.join(year_path, db_name)
     else:
-        # Se non è specificata una data, usa il giorno corrente
-        return os.path.join(year_path, f"prenotazioni_{now.day:02d}_{now.month:02d}.db")
+        # Restituisci l'ultimo database usato o quello dell'anno corrente
+        last_db = settings.value("last_database")
+        if last_db and os.path.exists(last_db):
+            return last_db
+        
+        year = QDate.currentDate().year()
+        return os.path.join(base_path, str(year), f"hemodos_{year}.db")
 
 def migrate_database():
     try:
@@ -142,21 +134,39 @@ def add_history_entry(action, details, specific_date=None):
     """
     Aggiunge un'entrata nella cronologia nel database annuale
     """
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    year = datetime.now().year if specific_date is None else int(specific_date.split('-')[0])
-    
-    # Usa il database della cronologia annuale
-    history_db = get_history_db_path(year)
-    conn = sqlite3.connect(history_db)
-    c = conn.cursor()
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS history
-                 (timestamp text, action text, details text)''')
-    c.execute("INSERT INTO history VALUES (?, ?, ?)", 
-             (timestamp, action, details))
-    
-    conn.commit()
-    conn.close()
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Gestisci la data specifica
+        if specific_date:
+            if isinstance(specific_date, QDate):
+                year = specific_date.year()
+            elif isinstance(specific_date, str):
+                year = int(specific_date.split('-')[0])
+            else:
+                year = datetime.now().year
+        else:
+            year = datetime.now().year
+        
+        # Usa il database della cronologia annuale
+        history_db = get_history_db_path(year)
+        
+        # Assicurati che la directory esista
+        os.makedirs(os.path.dirname(history_db), exist_ok=True)
+        
+        # Usa with per gestire correttamente la connessione
+        with sqlite3.connect(history_db) as conn:
+            c = conn.cursor()
+            
+            c.execute('''CREATE TABLE IF NOT EXISTS history
+                         (timestamp text, action text, details text)''')
+            c.execute("INSERT INTO history VALUES (?, ?, ?)", 
+                     (timestamp, action, details))
+            
+            conn.commit()
+            
+    except Exception as e:
+        logger.error(f"Errore nell'aggiunta alla cronologia: {str(e)}")
 
 def get_history(year=None):
     """Recupera la cronologia per l'anno specificato"""
@@ -181,66 +191,98 @@ def get_history(year=None):
     return results
 
 def add_reservation(date, time, name, surname, first_donation):
-    db_path = get_db_path(specific_date=date)
-    conn = sqlite3.connect(db_path)
-    c = conn.cursor()
-    
-    # Crea le tabelle se non esistono
-    c.executescript('''
-        CREATE TABLE IF NOT EXISTS reservations
-            (time text, name text, surname text, first_donation boolean, 
-             stato text DEFAULT 'Non effettuata');
-        CREATE TABLE IF NOT EXISTS history
-            (timestamp text, action text, details text);
-    ''')
-    
-    # Verifica se esiste già una prenotazione per questo orario
-    c.execute("SELECT name, surname, stato FROM reservations WHERE time=?", (time,))
-    result = c.fetchone()
-    
-    if result:
-        old_name, old_surname, current_status = result
-        # Aggiungi alla cronologia solo se c'è un cambiamento e i campi non sono vuoti
-        if ((old_name != name or old_surname != surname) and 
-            (name.strip() or surname.strip() or old_name.strip() or old_surname.strip())):
-            details = f"Data: {date}, Ora: {time}\n"
-            if old_name or old_surname:
-                details += f"Da: {old_name} {old_surname} -> "
-            details += f"A: {name} {surname}"
-            add_history_entry("Modifica prenotazione", details, specific_date=date)
-    else:
-        # Nuova prenotazione - aggiungi alla cronologia solo se non è vuota
-        if name.strip() or surname.strip():
-            details = f"Data: {date}, Ora: {time}, Nome: {name} {surname}"
-            add_history_entry("Nuova prenotazione", details, specific_date=date)
-    
-    # Inserisci o aggiorna la prenotazione mantenendo lo stato
-    c.execute("""INSERT OR REPLACE INTO reservations 
-                 (time, name, surname, first_donation, stato) 
-                 VALUES (?,?,?,?,?)""", 
-              (time, name, surname, first_donation, current_status if result else 'Non effettuata'))
-    
-    conn.commit()
-    conn.close()
-
-def get_reservations(date):
+    """Aggiunge o aggiorna una prenotazione nel database"""
     try:
-        db_path = get_db_path(specific_date=date)
+        # Converti la data in QDate se è una stringa
+        if isinstance(date, str):
+            date_obj = QDate.fromString(date, "yyyy-MM-dd")
+        else:
+            date_obj = date
+            
+        # Ottieni il percorso del database per questa data
+        db_path = get_db_path(date_obj)
         
-        if not os.path.exists(db_path):
-            init_db(specific_date=date)
-            return []
+        # Assicurati che la directory esista
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        
+        # Usa with per gestire correttamente la connessione
+        with sqlite3.connect(db_path) as conn:
+            c = conn.cursor()
+            
+            # Crea le tabelle se non esistono
+            c.executescript('''
+                CREATE TABLE IF NOT EXISTS reservations
+                    (time text PRIMARY KEY, name text, surname text, 
+                     first_donation boolean DEFAULT 0, 
+                     stato text DEFAULT 'Non effettuata');
+            ''')
+            
+            # Verifica se esiste già una prenotazione per questo orario
+            c.execute("SELECT name, surname, stato FROM reservations WHERE time=?", (time,))
+            result = c.fetchone()
+            
+            if result:
+                old_name, old_surname, current_status = result
+                # Aggiungi alla cronologia solo se c'è un cambiamento e i campi non sono vuoti
+                if ((old_name != name or old_surname != surname) and 
+                    (name.strip() or surname.strip() or old_name.strip() or old_surname.strip())):
+                    details = f"Data: {date_obj.toString('yyyy-MM-dd')}, Ora: {time}\n"
+                    if old_name or old_surname:
+                        details += f"Da: {old_name} {old_surname} -> "
+                    details += f"A: {name} {surname}"
+                    add_history_entry("Modifica prenotazione", details, specific_date=date_obj)
+            else:
+                # Nuova prenotazione - aggiungi alla cronologia solo se non è vuota
+                if name.strip() or surname.strip():
+                    details = f"Data: {date_obj.toString('yyyy-MM-dd')}, Ora: {time}, Nome: {name} {surname}"
+                    add_history_entry("Nuova prenotazione", details, specific_date=date_obj)
+            
+            # Inserisci o aggiorna la prenotazione
+            c.execute("""INSERT OR REPLACE INTO reservations 
+                         (time, name, surname, first_donation, stato) 
+                         VALUES (?,?,?,?,?)""", 
+                      (time, name, surname, first_donation, 
+                       current_status if result else 'Non effettuata'))
+            
+            conn.commit()
+            
+        return True
+        
+    except Exception as e:
+        logger.error(f"Errore nel salvataggio della prenotazione: {str(e)}")
+        return False
+
+def get_reservations(selected_date):
+    """Ottiene le prenotazioni per una data specifica"""
+    try:
+        # Converti QDate in stringa se necessario
+        if hasattr(selected_date, 'toString'):
+            date_str = selected_date.toString("yyyy-MM-dd")
+            selected_date = QDate.fromString(date_str, "yyyy-MM-dd")
+        
+        # Ottieni il percorso del database per questa data
+        db_path = get_db_path(selected_date)
+        
+        # Crea la directory se non esiste
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
         
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
         
-        c.execute("SELECT time, name, surname, first_donation, stato FROM reservations")
-        results = c.fetchall()
+        # Crea la tabella se non esiste
+        c.execute('''CREATE TABLE IF NOT EXISTS reservations
+                     (time text PRIMARY KEY, name text, surname text, 
+                      first_donation integer DEFAULT 0, 
+                      stato text DEFAULT 'Non effettuata')''')
+        
+        c.execute('SELECT time, name, surname, first_donation, stato FROM reservations ORDER BY time')
+        reservations = c.fetchall()
         conn.close()
-        return results
+        
+        return reservations
         
     except Exception as e:
-        print(f"Errore nel recupero delle prenotazioni: {str(e)}")
+        logger.error(f"Errore nel recupero delle prenotazioni: {str(e)}")
         return []
 
 def delete_reservation(date, time):
@@ -302,20 +344,32 @@ def add_donation_date(year, date):
         return False
 
 def get_donation_dates(year):
+    """Ottiene le date di donazione per un anno specifico"""
     try:
-        db_path = get_db_path(is_donation_dates=True)
+        settings = QSettings('Hemodos', 'DatabaseSettings')
+        service = settings.value("cloud_service", "Locale")
+        
+        if service == "Locale":
+            base_path = os.path.expanduser("~/Documents/Hemodos")
+        else:
+            cloud_path = settings.value("cloud_path", "")
+            base_path = os.path.join(cloud_path, "Hemodos")
+        
+        db_path = os.path.join(base_path, str(year), f"date_donazione_{year}.db")
+        
+        if not os.path.exists(db_path):
+            return []
+            
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
-        
-        c.execute('''CREATE TABLE IF NOT EXISTS donation_dates
-                     (year integer, date text, UNIQUE(year, date))''')
-        
-        c.execute("SELECT date FROM donation_dates WHERE year=? ORDER BY date", (year,))
-        results = [row[0] for row in c.fetchall()]
+        c.execute('SELECT date FROM donation_dates WHERE year = ?', (year,))
+        dates = [row[0] for row in c.fetchall()]
         conn.close()
-        return results
+        
+        return dates
+        
     except Exception as e:
-        print(f"Errore nel recupero delle date di donazione: {str(e)}")
+        logger.error(f"Errore nel recupero delle date di donazione: {str(e)}")
         return []
 
 def delete_donation_date(year, date):
@@ -422,39 +476,36 @@ def get_monthly_stats_db_path(year, month):
     base_path = os.path.dirname(get_db_path())
     return os.path.join(base_path, f"statistiche_{year}_{month:02d}.db")
 
-def save_donation_status(date, time, stato):
-    """Salva lo stato della donazione e aggiorna le statistiche"""
+def save_donation_status(date, time, status):
+    """Salva lo stato di una donazione"""
     try:
-        # Salva lo stato nel database giornaliero
-        db_path = get_db_path(specific_date=date)
+        # Converti la data in QDate se è una stringa
+        if isinstance(date, str):
+            date_obj = QDate.fromString(date, "yyyy-MM-dd")
+        else:
+            date_obj = date
+            
+        # Ottieni il percorso del database per questa data
+        db_path = get_db_path(date_obj)
+        
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
+        
+        # Aggiorna lo stato
         c.execute("UPDATE reservations SET stato = ? WHERE time = ?", 
-                 (stato, time))
-        conn.commit()
-        conn.close()
-
-        # Aggiorna le statistiche mensili
-        date_obj = datetime.strptime(date, "%Y-%m-%d")
-        stats_db = get_monthly_stats_db_path(date_obj.year, date_obj.month)
+                 (status, time))
         
-        conn = sqlite3.connect(stats_db)
-        c = conn.cursor()
-        
-        # Crea tabella se non esiste
-        c.execute('''CREATE TABLE IF NOT EXISTS donation_stats
-                     (date text, time text, stato text)''')
-        
-        # Aggiorna o inserisci il record
-        c.execute('''INSERT OR REPLACE INTO donation_stats (date, time, stato)
-                     VALUES (?, ?, ?)''', (date, time, stato))
+        # Aggiungi alla cronologia
+        if c.rowcount > 0:
+            details = f"Data: {date}, Ora: {time}, Nuovo stato: {status}"
+            add_history_entry("Cambio stato donazione", details, specific_date=date_obj)
         
         conn.commit()
         conn.close()
-        
         return True
+        
     except Exception as e:
-        print(f"Errore nel salvataggio dello stato donazione: {str(e)}")
+        logger.error(f"Errore nel salvataggio dello stato: {str(e)}")
         return False
 
 def reset_reservation(date, time):

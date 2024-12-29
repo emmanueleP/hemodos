@@ -68,7 +68,7 @@ class InfoDialog(HemodosDialog):
             <p style='text-align: center;'>
             <b>Software per la Gestione delle Donazioni di Sangue</b>
             </p>
-            <p>Aristotele, <i>Historia Animalium 3.19</i>: "τὰ δ᾽ ἔχοντα αἷμα ζωογονοῦσιν" ("gli animali che hanno sangue generano vita").</p>
+            <p>Aristotele, <i>Historia Animalium</i> 3.19: "τὰ δ᾽ ἔχοντα αἷμα ζωογονοῦσιν" ("gli animali che hanno sangue generano vita").</p>
 
             
             <p>
@@ -108,7 +108,7 @@ class InfoDialog(HemodosDialog):
             <ul>
                 <li>Windows 10 or higher</li>
                 <li>Disk space: ~100MB</li>
-                <li>RAM minimum: ~4GB</li>          
+                <li>RAM minimum: ~2GB</li>          
             </ul>
             
             <h3>Developed by:</h3>
@@ -116,7 +116,7 @@ class InfoDialog(HemodosDialog):
             <p>To report bugs or suggest improvements, please use the GitHub repository.</p>
             
             <h3>License:</h3>
-            <p>© 2024 Emmanuele Pani. Under MIT License.</p>
+            <p>© 2025 Emmanuele Pani. Under MIT License.</p>
             <a href='https://github.com/emmanueleP/Hemodos'>GitHub</a>
             
             <h3>Version:</h3>
