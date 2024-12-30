@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLab
 from PyQt5.QtCore import Qt
 import os
 from PyQt5.QtGui import QIcon
-from database import get_db_path
+from core.database import get_db_path
 
 class HemodosDialog(QDialog):
     def __init__(self, parent=None, title=""):

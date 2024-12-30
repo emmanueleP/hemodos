@@ -1,9 +1,9 @@
 from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QTreeWidget, QTreeWidgetItem, 
                             QPushButton, QHBoxLayout, QMessageBox)
-from PyQt5.QtCore import Qt, QSettings
-import os
-from datetime import datetime
+from PyQt5.QtCore import Qt
+from core.delete_db_logic import get_available_years, delete_year_directory
+from core.logger import logger
 
 class DeleteFilesDialog(HemodosDialog):
     def __init__(self, parent=None):
@@ -11,102 +11,77 @@ class DeleteFilesDialog(HemodosDialog):
         self.init_ui()
 
     def init_ui(self):
-        # Tree widget per mostrare i file
+        # Tree widget per mostrare gli anni
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["Anno", "Data Modifica", "Dimensione"])
-        self.tree.setSelectionMode(QTreeWidget.SingleSelection)  # Solo selezione singola
+        self.tree.setHeaderLabel("Anni disponibili")
         self.content_layout.addWidget(self.tree)
-
-        # Pulsanti
-        button_layout = QHBoxLayout()
-        delete_btn = QPushButton("Elimina Database")
-        delete_btn.clicked.connect(self.delete_selected)
-        delete_btn.setStyleSheet(self.button_style)
-        button_layout.addWidget(delete_btn)
-        self.content_layout.addLayout(button_layout)
-
-        # Carica i file
-        self.load_files()
-
-    def load_files(self):
-        base_dir = self._get_base_dir()
-        if not base_dir or not os.path.exists(base_dir):
-            QMessageBox.warning(self, "Attenzione", 
-                              f"La directory {base_dir} non esiste ancora.\n"
-                              "Nessun database da eliminare.")
-            return
-
-        try:
-            self.tree.clear()
-            for year in sorted(os.listdir(base_dir)):
-                year_path = os.path.join(base_dir, year)
-                if os.path.isdir(year_path):
-                    db_file = f"hemodos_{year}.db"
-                    db_path = os.path.join(year_path, db_file)
-                    
-                    if os.path.exists(db_path):
-                        mod_time = datetime.fromtimestamp(
-                            os.path.getmtime(db_path)
-                        ).strftime("%d/%m/%Y %H:%M")
-                        size = f"{os.path.getsize(db_path) / 1024:.1f} KB"
-                        
-                        item = QTreeWidgetItem([year, mod_time, size])
-                        item.setData(0, Qt.UserRole, db_path)
-                        self.tree.addTopLevelItem(item)
-
-            self.tree.expandAll()
-        except Exception as e:
-            QMessageBox.warning(self, "Errore", f"Errore nel caricamento dei file: {str(e)}")
-
-    def _get_base_dir(self):
-        settings = QSettings('Hemodos', 'DatabaseSettings')
-        service = settings.value("cloud_service", "Locale")
         
-        if service == "Locale":
-            return os.path.expanduser("~/Documents/Hemodos")
-        else:
-            return os.path.join(settings.value("cloud_path", ""), "Hemodos")
+        # Carica gli anni
+        self.load_years()
+        
+        # Pulsante elimina
+        delete_btn = QPushButton("Elimina")
+        delete_btn.setStyleSheet(self.button_style)
+        delete_btn.clicked.connect(self.delete_selected)
+        
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_layout.addWidget(delete_btn)
+        self.content_layout.addLayout(btn_layout)
+
+    def load_years(self):
+        """Carica la lista degli anni disponibili"""
+        self.tree.clear()
+        for year in get_available_years():
+            item = QTreeWidgetItem([str(year)])
+            self.tree.addTopLevelItem(item)
 
     def delete_selected(self):
-        selected_items = self.tree.selectedItems()
-        if not selected_items:
-            QMessageBox.warning(self, "Attenzione", "Seleziona un anno da eliminare")
+        """Elimina l'anno selezionato"""
+        selected = self.tree.currentItem()
+        if not selected:
+            QMessageBox.warning(
+                self,
+                "Attenzione",
+                "Seleziona un anno da eliminare"
+            )
             return
-
-        item = selected_items[0]  # Prendiamo il primo (e unico) item selezionato
-        year = item.text(0)
-        db_path = item.data(0, Qt.UserRole)
-
-        # Prima conferma
-        reply = QMessageBox.warning(
+            
+        year = int(selected.text(0))
+        
+        # Chiedi conferma
+        reply = QMessageBox.question(
             self,
             "Conferma eliminazione",
-            f"Stai per eliminare il database dell'anno {year}.\n\n"
-            "Questa operazione non può essere annullata.\n"
-            "Sei sicuro di voler procedere?",
+            f"Vuoi davvero eliminare tutti i dati dell'anno {year}?\n"
+            "Questa operazione non può essere annullata.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
-
+        
         if reply == QMessageBox.Yes:
-            # Seconda conferma con anno specifico
-            confirm = QMessageBox.critical(
-                self,
-                "Conferma definitiva",
-                f"ATTENZIONE! Procedendo verranno persi tutti i dati per l'anno {year}.\n\n"
-                "Vuoi davvero eliminare definitivamente il database?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            
-            if confirm == QMessageBox.Yes:
-                try:
-                    os.remove(db_path)
-                    self.load_files()  # Ricarica la lista
-                    QMessageBox.information(self, "Successo", f"Database dell'anno {year} eliminato con successo")
-                except Exception as e:
+            try:
+                if delete_year_directory(year):
+                    # Rimuovi dall'albero
+                    self.tree.takeTopLevelItem(
+                        self.tree.indexOfTopLevelItem(selected)
+                    )
+                    QMessageBox.information(
+                        self,
+                        "Successo",
+                        f"Tutti i dati dell'anno {year} sono stati eliminati"
+                    )
+                else:
                     QMessageBox.warning(
                         self,
-                        "Errore",
-                        f"Errore nell'eliminazione del database: {str(e)}"
+                        "Attenzione",
+                        f"Directory dell'anno {year} non trovata"
                     )
+                    
+            except Exception as e:
+                logger.error(f"Errore nell'eliminazione dell'anno {year}: {str(e)}")
+                QMessageBox.critical(
+                    self,
+                    "Errore",
+                    f"Errore nell'eliminazione dell'anno {year}: {str(e)}"
+                )

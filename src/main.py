@@ -139,7 +139,13 @@ def main():
     # Load config
     config = load_config()
 
-    # Initialize main window
+    # Mostra il dialogo di benvenuto al primo avvio
+    if settings.value("show_welcome", True, type=bool):
+        from gui.dialogs.welcome_dialog import WelcomeDialog
+        welcome = WelcomeDialog()
+        welcome.exec_()
+    
+    # Avvia l'applicazione principale
     window = MainWindow(config)
     window.show()
 

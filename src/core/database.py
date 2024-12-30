@@ -7,8 +7,13 @@ from watchdog.events import FileSystemEventHandler
 from core.logger import logger
 import time
 
-def get_db_path(specific_date=None):
-    """Ottiene il percorso del database corretto"""
+def get_db_path(specific_date=None, is_donation_dates=False):
+    """Ottiene il percorso del database corretto
+    
+    Args:
+        specific_date: Data specifica (QDate)
+        is_donation_dates: Se True, restituisce il percorso del database delle date di donazione
+    """
     settings = QSettings('Hemodos', 'DatabaseSettings')
     service = settings.value("cloud_service", "Locale")
     
@@ -19,13 +24,15 @@ def get_db_path(specific_date=None):
         base_path = os.path.join(cloud_path, "Hemodos")
     
     if specific_date:
-        # Assicurati che la directory dell'anno esista
-        year_path = os.path.join(base_path, str(specific_date.year()))
+        year = specific_date.year()
+        year_path = os.path.join(base_path, str(year))
         os.makedirs(year_path, exist_ok=True)
         
-        # Crea il nome del file con giorno e mese
-        db_name = f"prenotazioni_{specific_date.day():02d}_{specific_date.month():02d}.db"
-        return os.path.join(year_path, db_name)
+        if is_donation_dates:
+            return os.path.join(year_path, f"date_donazione_{year}.db")
+        else:
+            db_name = f"prenotazioni_{specific_date.day():02d}_{specific_date.month():02d}.db"
+            return os.path.join(year_path, db_name)
     else:
         # Restituisci l'ultimo database usato o quello dell'anno corrente
         last_db = settings.value("last_database")
@@ -36,46 +43,28 @@ def get_db_path(specific_date=None):
         return os.path.join(base_path, str(year), f"hemodos_{year}.db")
 
 def migrate_database():
+    """Aggiorna la struttura del database se necessario"""
     try:
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
         
-        # Controlla quali colonne esistono
+        # Verifica se la colonna stato esiste
         cursor = c.execute('PRAGMA table_info(reservations)')
         columns = [column[1] for column in cursor.fetchall()]
         
-        if 'first_donation' not in columns or 'stato' not in columns:
-            print("Migrazione database: aggiunta colonne mancanti")
-            # Crea una tabella temporanea con la nuova struttura
-            c.executescript('''
-                BEGIN TRANSACTION;
-                
-                -- Crea una tabella temporanea con la nuova struttura
-                CREATE TABLE reservations_new
-                    (time text, name text, surname text, 
-                     first_donation boolean DEFAULT 0,
-                     stato text DEFAULT 'Non effettuata');
-                
-                -- Copia i dati esistenti
-                INSERT INTO reservations_new (time, name, surname)
-                SELECT time, name, surname FROM reservations;
-                
-                -- Elimina la vecchia tabella
-                DROP TABLE reservations;
-                
-                -- Rinomina la nuova tabella
-                ALTER TABLE reservations_new RENAME TO reservations;
-                
-                COMMIT;
-            ''')
-            
+        # Aggiungi la colonna stato se non esiste
+        if 'stato' not in columns:
+            c.execute('ALTER TABLE reservations ADD COLUMN stato text DEFAULT "Non effettuata"')
+            logger.info("Aggiunta colonna stato alla tabella reservations")
+        
         conn.commit()
         conn.close()
-        print("Migrazione database completata con successo")
+        return True
+        
     except Exception as e:
-        print(f"Errore durante la migrazione del database: {str(e)}")
-        raise
+        logger.error(f"Errore nella migrazione del database: {str(e)}")
+        return False
 
 def init_db(specific_date=None):
     """Inizializza il database per una data specifica"""
@@ -255,31 +244,25 @@ def add_reservation(date, time, name, surname, first_donation):
 def get_reservations(selected_date):
     """Ottiene le prenotazioni per una data specifica"""
     try:
-        # Converti QDate in stringa se necessario
-        if hasattr(selected_date, 'toString'):
-            date_str = selected_date.toString("yyyy-MM-dd")
-            selected_date = QDate.fromString(date_str, "yyyy-MM-dd")
-        
-        # Ottieni il percorso del database per questa data
         db_path = get_db_path(selected_date)
-        
-        # Crea la directory se non esiste
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        
+        if not os.path.exists(db_path):
+            return []
+            
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
         
-        # Crea la tabella se non esiste
-        c.execute('''CREATE TABLE IF NOT EXISTS reservations
-                     (time text PRIMARY KEY, name text, surname text, 
-                      first_donation integer DEFAULT 0, 
-                      stato text DEFAULT 'Non effettuata')''')
+        # Ottimizza la query usando un indice
+        c.execute('CREATE INDEX IF NOT EXISTS idx_time ON reservations(time)')
         
-        c.execute('SELECT time, name, surname, first_donation, stato FROM reservations ORDER BY time')
-        reservations = c.fetchall()
+        # Esegui la query ottimizzata
+        c.execute("""SELECT time, name, surname, first_donation, stato 
+                    FROM reservations 
+                    ORDER BY time""")
+        
+        results = c.fetchall()
         conn.close()
         
-        return reservations
+        return results
         
     except Exception as e:
         logger.error(f"Errore nel recupero delle prenotazioni: {str(e)}")
@@ -346,26 +329,25 @@ def add_donation_date(year, date):
 def get_donation_dates(year):
     """Ottiene le date di donazione per un anno specifico"""
     try:
-        settings = QSettings('Hemodos', 'DatabaseSettings')
-        service = settings.value("cloud_service", "Locale")
-        
-        if service == "Locale":
-            base_path = os.path.expanduser("~/Documents/Hemodos")
-        else:
-            cloud_path = settings.value("cloud_path", "")
-            base_path = os.path.join(cloud_path, "Hemodos")
-        
-        db_path = os.path.join(base_path, str(year), f"date_donazione_{year}.db")
+        # Crea una data fittizia per l'anno richiesto
+        dummy_date = QDate(year, 1, 1)
+        db_path = get_db_path(dummy_date, is_donation_dates=True)
         
         if not os.path.exists(db_path):
             return []
             
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
-        c.execute('SELECT date FROM donation_dates WHERE year = ?', (year,))
-        dates = [row[0] for row in c.fetchall()]
-        conn.close()
         
+        # Crea la tabella se non esiste
+        c.execute('''CREATE TABLE IF NOT EXISTS donation_dates
+                     (date text PRIMARY KEY)''')
+        
+        # Ottieni tutte le date
+        c.execute("SELECT date FROM donation_dates ORDER BY date")
+        dates = [row[0] for row in c.fetchall()]
+        
+        conn.close()
         return dates
         
     except Exception as e:

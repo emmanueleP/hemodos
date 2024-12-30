@@ -14,7 +14,9 @@ import shutil
 from datetime import datetime
 import sqlite3
 from core.year_manager import YearManager
+from core.logger import logger
 from core.themes import THEMES
+from core.delete_db_logic import get_base_path
 
 class SettingsDialog(HemodosDialog):
     def __init__(self, parent=None):
@@ -23,6 +25,28 @@ class SettingsDialog(HemodosDialog):
         self.parent = parent
         self.year_manager = YearManager()
         self.year_manager.year_created.connect(self.on_year_created)
+        
+        # Aggiungi current_year
+        self.current_year = QDate.currentDate().year()
+        
+        # Aggiungi button_style
+        self.button_style = """
+            QPushButton {
+                background-color: #004d4d;
+                color: white;
+                border: none;
+                padding: 5px 15px;
+                border-radius: 3px;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background-color: #006666;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+            }
+        """
+        
         self.init_ui()
 
     def init_ui(self):
@@ -368,115 +392,101 @@ class SettingsDialog(HemodosDialog):
             QMessageBox.warning(self, "Errore", f"Errore durante il salvataggio: {str(e)}")
 
     def init_general_tab(self):
+        """Inizializza la tab Generali"""
         general_tab = QWidget()
         layout = QVBoxLayout()
-
-        # Selettore Anno
-        year_group = QGroupBox("Seleziona Anno")
+        
+        # Gruppo Date di Donazione
+        donation_group = QGroupBox("Date di Donazione")
+        donation_layout = QHBoxLayout()
+        
+        # Colonna sinistra: calendario e controlli
+        left_column = QVBoxLayout()
+        
+        # Anno
         year_layout = QHBoxLayout()
-        
+        year_label = QLabel("Anno:")
         self.year_combo = QComboBox()
-        # Temporaneamente disconnetti il segnale fino a quando tutti i widget sono creati
-        # self.year_combo.currentTextChanged.connect(self.on_year_changed)
-        
-        # Carica tutti gli anni disponibili dai file date_donazione
-        base_path = os.path.dirname(get_db_path())
-        available_years = []
-        for filename in os.listdir(base_path):
-            if filename.startswith("date_donazione_") and filename.endswith(".db"):
-                try:
-                    year = int(filename.split("_")[2].split(".")[0])
-                    available_years.append(year)
-                except:
-                    continue
-        
-        # Se non ci sono anni disponibili, usa l'anno corrente
-        if not available_years:
-            available_years = [datetime.now().year]
-        
-        # Popola il combo box con gli anni disponibili
-        for year in sorted(available_years, reverse=True):
+        current_year = QDate.currentDate().year()
+        for year in range(current_year - 2, current_year + 3):
             self.year_combo.addItem(str(year))
+        self.year_combo.setCurrentText(str(current_year))
+        self.year_combo.currentTextChanged.connect(self.on_year_changed)
         
-        year_layout.addWidget(QLabel("Anno:"))
+        year_layout.addWidget(year_label)
         year_layout.addWidget(self.year_combo)
-        year_group.setLayout(year_layout)
-        layout.addWidget(year_group)
-
-        # Date di donazione per l'anno selezionato
-        dates_group = QGroupBox("Date di Donazione")
-        dates_layout = QHBoxLayout()
-
+        year_layout.addStretch()
+        
+        left_column.addLayout(year_layout)
+        
         # Calendario
-        calendar_layout = QVBoxLayout()
         self.donation_calendar = QCalendarWidget()
         self.donation_calendar.setGridVisible(True)
-        calendar_layout.addWidget(self.donation_calendar)
-        dates_layout.addLayout(calendar_layout)
-
-        # Lista e pulsanti
-        list_layout = QVBoxLayout()
+        left_column.addWidget(self.donation_calendar)
         
-        list_label = QLabel("Date selezionate:")
-        list_layout.addWidget(list_label)
-        
-        self.donation_dates_list = QListWidget()
-        list_layout.addWidget(self.donation_dates_list)
-
         # Pulsanti
-        btn_layout = QHBoxLayout()
-        add_date_btn = QPushButton("Aggiungi Data")
-        add_date_btn.clicked.connect(self.add_donation_date)
-        remove_date_btn = QPushButton("Rimuovi Data")
-        remove_date_btn.clicked.connect(self.remove_donation_date)
+        buttons_layout = QHBoxLayout()
+        add_btn = QPushButton("Aggiungi Data")
+        add_btn.clicked.connect(self.add_donation_date)
+        add_btn.setStyleSheet(self.button_style)
         
-        btn_layout.addWidget(add_date_btn)
-        btn_layout.addWidget(remove_date_btn)
-        list_layout.addLayout(btn_layout)
-
-        dates_layout.addLayout(list_layout)
-        dates_group.setLayout(dates_layout)
-        layout.addWidget(dates_group)
-
+        remove_btn = QPushButton("Rimuovi Data")
+        remove_btn.clicked.connect(self.remove_donation_date)
+        remove_btn.setStyleSheet(self.button_style)
+        
+        buttons_layout.addWidget(add_btn)
+        buttons_layout.addWidget(remove_btn)
+        left_column.addLayout(buttons_layout)
+        
+        # Colonna destra: lista date
+        right_column = QVBoxLayout()
+        self.donation_dates_list = QListWidget()
+        right_column.addWidget(self.donation_dates_list)
+        
+        # Aggiungi le colonne al layout principale
+        donation_layout.addLayout(left_column, 2)  # Proporzione 2
+        donation_layout.addLayout(right_column, 1)  # Proporzione 1
+        
+        donation_group.setLayout(donation_layout)
+        layout.addWidget(donation_group)
+        
         general_tab.setLayout(layout)
         
-        # Ora che tutti i widget sono creati:
-        # 1. Evidenzia le date
-        self.highlight_saved_dates()
-        # 2. Carica le date per l'anno inizialmente selezionato
-        self.load_donation_dates_for_year(int(self.year_combo.currentText()))
-        # 3. Connetti il segnale del combo box
-        self.year_combo.currentTextChanged.connect(self.on_year_changed)
+        # Carica le date iniziali
+        self.load_donation_dates_for_year(current_year)
         
         return general_tab
 
-    def on_year_changed(self, year):
-        """Gestisce il cambio dell'anno selezionato"""
+    def on_year_changed(self, year_str):
+        """Gestisce il cambio di anno nel combo box"""
         try:
-            year = int(year)
-            # Ricarica le date per il nuovo anno
+            year = int(year_str)
+            self.current_year = year
             self.load_donation_dates_for_year(year)
-            # Resetta e riapplica l'evidenziazione del calendario
-            self.donation_calendar.setDateTextFormat(QDate(), QTextCharFormat())
-            self.highlight_saved_dates()
+            
         except Exception as e:
-            QMessageBox.warning(self, "Errore", f"Errore nel caricamento delle date: {str(e)}")
+            logger.error(f"Errore nel cambio anno: {str(e)}")
 
     def highlight_saved_dates(self):
-        """Evidenzia le date salvate nel calendario della tab Generali"""
+        """Evidenzia le date salvate nel calendario"""
         try:
-            year = int(self.year_combo.currentText())
-            donation_format = QTextCharFormat()
-            donation_format.setBackground(QColor("#c2fc03"))  # Verde lime
-            donation_format.setForeground(QColor("#000000"))  # Testo nero
+            # Reset formato precedente
+            self.donation_calendar.setDateTextFormat(QDate(), QTextCharFormat())
             
-            dates = get_donation_dates(year)
-            for date_str in dates:
-                date = QDate.fromString(date_str, "yyyy-MM-dd")
+            # Formato per le date di donazione
+            highlight_format = QTextCharFormat()
+            highlight_format.setBackground(QColor("#c2fc03"))  # Verde lime
+            highlight_format.setForeground(QColor("#000000"))  # Testo nero
+            
+            # Applica il formato a tutte le date nella lista
+            for i in range(self.donation_dates_list.count()):
+                date_str = self.donation_dates_list.item(i).text()
+                date = QDate.fromString(date_str, "dd/MM/yyyy")
                 if date.isValid():
-                    self.donation_calendar.setDateTextFormat(date, donation_format)
+                    self.donation_calendar.setDateTextFormat(date, highlight_format)
+                
         except Exception as e:
-            print(f"Errore nell'evidenziazione delle date: {str(e)}")
+            logger.error(f"Errore nell'evidenziazione delle date: {str(e)}")
 
     def get_current_year(self):
         # Prima prova a ottenere l'anno dal database aperto
@@ -494,48 +504,181 @@ class SettingsDialog(HemodosDialog):
         return QDate.currentDate().year()
 
     def add_donation_date(self):
-        selected_date = self.donation_calendar.selectedDate()
-        
-        # Verifica che la data sia dell'anno corrente
-        if selected_date.year() != self.current_year:
-            QMessageBox.warning(self, "Errore", 
-                              f"Puoi aggiungere solo date dell'anno {self.current_year}")
-            return
-
-        date_str = selected_date.toString("yyyy-MM-dd")
-        
-        if add_donation_date(self.current_year, date_str):
-            # Aggiorna solo le visualizzazioni delle date di donazione
-            self.load_donation_dates_for_year(self.current_year)
-            self.highlight_saved_dates()
-            if self.parent:
-                # Aggiorna solo il formato delle date nel calendario principale
-                self.parent.update_donation_dates_format()
-        else:
-            QMessageBox.warning(self, "Errore", "Impossibile aggiungere la data selezionata")
+        """Aggiunge una data di donazione"""
+        try:
+            selected_date = self.donation_calendar.selectedDate()
+            
+            # Verifica che la data sia nell'anno corrente
+            if selected_date.year() != self.current_year:
+                QMessageBox.warning(
+                    self,
+                    "Attenzione",
+                    "Puoi aggiungere date solo per l'anno corrente"
+                )
+                return
+            
+            # Formatta la data
+            date_str = selected_date.toString("yyyy-MM-dd")
+            
+            # Usa get_db_path per ottenere il percorso corretto
+            base_path = get_base_path()
+            year_path = os.path.join(base_path, str(self.current_year))
+            
+            # Crea la directory se non esiste
+            os.makedirs(year_path, exist_ok=True)
+            
+            # Percorso del database delle date di donazione
+            db_path = os.path.join(year_path, f"date_donazione_{self.current_year}.db")
+            
+            conn = sqlite3.connect(db_path)
+            c = conn.cursor()
+            
+            # Crea la tabella se non esiste
+            c.execute('''CREATE TABLE IF NOT EXISTS donation_dates
+                         (date text PRIMARY KEY)''')
+            
+            # Inserisci la data
+            try:
+                c.execute("INSERT INTO donation_dates (date) VALUES (?)", (date_str,))
+                conn.commit()
+                
+                # Aggiorna la lista
+                self.load_donation_dates()
+                
+                # Aggiorna il calendario principale se esiste
+                if hasattr(self, 'parent') and self.parent:
+                    self.parent.highlight_donation_dates()
+                
+                QMessageBox.information(
+                    self,
+                    "Successo",
+                    f"Data di donazione aggiunta: {selected_date.toString('dd/MM/yyyy')}"
+                )
+                
+            except sqlite3.IntegrityError:
+                QMessageBox.warning(
+                    self,
+                    "Attenzione",
+                    "Questa data è già presente nel calendario donazioni"
+                )
+            
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Errore nell'aggiunta della data di donazione: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nell'aggiunta della data di donazione: {str(e)}"
+            )
 
     def remove_donation_date(self):
-        current_item = self.donation_dates_list.currentItem()
-        
-        if current_item:
-            date_str = current_item.text()
-            if delete_donation_date(self.current_year, date_str):
-                # Aggiorna sia la lista che il calendario
-                self.load_donation_dates_for_year(self.current_year)
-                # Resetta e riapplica l'evidenziazione
-                self.donation_calendar.setDateTextFormat(QDate(), QTextCharFormat())
-                self.highlight_saved_dates()
-                if self.parent:
+        """Rimuove una data di donazione"""
+        try:
+            selected_items = self.donation_dates_list.selectedItems()
+            if not selected_items:
+                QMessageBox.warning(
+                    self,
+                    "Attenzione",
+                    "Seleziona una data da rimuovere"
+                )
+                return
+            
+            selected_date = QDate.fromString(
+                selected_items[0].text(),
+                "dd/MM/yyyy"
+            )
+            
+            # Conferma rimozione
+            reply = QMessageBox.question(
+                self,
+                "Conferma rimozione",
+                f"Vuoi davvero rimuovere la data {selected_date.toString('dd/MM/yyyy')}?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+                # Rimuovi dal database
+                db_path = get_db_path(selected_date, is_donation_dates=True)
+                
+                conn = sqlite3.connect(db_path)
+                c = conn.cursor()
+                
+                c.execute(
+                    "DELETE FROM donation_dates WHERE date = ?",
+                    (selected_date.toString("yyyy-MM-dd"),)
+                )
+                
+                conn.commit()
+                conn.close()
+                
+                # Aggiorna la lista e il calendario
+                self.load_donation_dates()
+                
+                # Aggiorna il calendario principale se esiste
+                if hasattr(self, 'parent') and self.parent:
                     self.parent.highlight_donation_dates()
-            else:
-                QMessageBox.warning(self, "Errore", "Impossibile rimuovere la data selezionata")
+                
+                QMessageBox.information(
+                    self,
+                    "Successo",
+                    "Data rimossa con successo"
+                )
+                
+        except Exception as e:
+            logger.error(f"Errore nella rimozione della data: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nella rimozione della data: {str(e)}"
+            )
 
     def load_donation_dates_for_year(self, year):
-        """Carica le date nella lista della tab Generali"""
-        self.donation_dates_list.clear()
-        dates = get_donation_dates(year)
-        for date in sorted(dates):
-            self.donation_dates_list.addItem(date)
+        """Carica le date di donazione per l'anno specificato"""
+        try:
+            # Pulisci la lista esistente
+            self.donation_dates_list.clear()
+            
+            # Crea una data fittizia per l'anno selezionato
+            dummy_date = QDate(year, 1, 1)
+            
+            # Ottieni le date dal database
+            db_path = get_db_path(dummy_date, is_donation_dates=True)
+            
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                c = conn.cursor()
+                
+                # Crea la tabella se non esiste
+                c.execute('''CREATE TABLE IF NOT EXISTS donation_dates
+                             (date text PRIMARY KEY)''')
+                
+                # Ottieni le date ordinate
+                c.execute("SELECT date FROM donation_dates ORDER BY date")
+                dates = c.fetchall()
+                
+                for date_tuple in dates:
+                    date_str = date_tuple[0]
+                    date = QDate.fromString(date_str, "yyyy-MM-dd")
+                    if date.isValid():
+                        # Aggiungi alla lista formattata
+                        self.donation_dates_list.addItem(
+                            date.toString("dd/MM/yyyy")
+                        )
+                
+                conn.close()
+                
+                # Evidenzia le date nel calendario
+                self.highlight_saved_dates()
+                
+        except Exception as e:
+            logger.error(f"Errore nel caricamento delle date di donazione per l'anno {year}: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nel caricamento delle date di donazione: {str(e)}"
+            )
 
     def select_logo(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -599,27 +742,10 @@ class SettingsDialog(HemodosDialog):
         year_layout.addWidget(QLabel("Anno:"))
         self.new_year_spin = QSpinBox()
         current_year = datetime.now().year
-        self.new_year_spin.setRange(current_year, current_year + 5)  # Permetti fino a 5 anni nel futuro
+        self.new_year_spin.setRange(current_year, 2039)  # Limite al 2039
         self.new_year_spin.setValue(current_year + 1)
         year_layout.addWidget(self.new_year_spin)
         new_year_layout.addLayout(year_layout)
-        
-        # Opzioni
-        self.create_db_check = QCheckBox("Crea database principale")
-        self.create_db_check.setChecked(True)
-        new_year_layout.addWidget(self.create_db_check)
-        
-        self.create_dates_check = QCheckBox("Crea database date donazione")
-        self.create_dates_check.setChecked(True)
-        new_year_layout.addWidget(self.create_dates_check)
-        
-        self.create_history_check = QCheckBox("Crea database cronologia")
-        self.create_history_check.setChecked(True)
-        new_year_layout.addWidget(self.create_history_check)
-        
-        self.create_stats_check = QCheckBox("Crea database statistiche")
-        self.create_stats_check.setChecked(True)
-        new_year_layout.addWidget(self.create_stats_check)
         
         # Pulsante crea
         create_btn = QPushButton("Crea Struttura Anno")
@@ -688,3 +814,45 @@ class SettingsDialog(HemodosDialog):
     def on_year_created(self, year):
         """Gestisce la creazione di un nuovo anno"""
         self.load_existing_years()  # Ricarica la lista degli anni
+
+    def load_donation_dates(self):
+        """Carica le date di donazione nella lista"""
+        try:
+            # Pulisci la lista esistente
+            self.donation_dates_list.clear()
+            
+            # Ottieni le date dal database
+            db_path = os.path.join(
+                os.path.dirname(get_db_path()),
+                str(self.current_year),
+                f"date_donazione_{self.current_year}.db"
+            )
+            
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                c = conn.cursor()
+                
+                c.execute("SELECT date FROM donation_dates ORDER BY date")
+                dates = c.fetchall()
+                
+                for date_tuple in dates:
+                    date_str = date_tuple[0]
+                    date = QDate.fromString(date_str, "yyyy-MM-dd")
+                    if date.isValid():
+                        # Aggiungi alla lista formattata
+                        self.donation_dates_list.addItem(
+                            date.toString("dd/MM/yyyy")
+                        )
+                
+                conn.close()
+                
+            # Evidenzia le date nel calendario
+            self.highlight_saved_dates()
+            
+        except Exception as e:
+            logger.error(f"Errore nel caricamento delle date di donazione: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nel caricamento delle date di donazione: {str(e)}"
+            )

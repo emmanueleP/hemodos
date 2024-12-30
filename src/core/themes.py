@@ -96,11 +96,26 @@ class Theme:
             }}
             
             QComboBox::down-arrow {{
-                image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid white;
-                margin-right: 5px;
+                image: url(assets/arrow_down.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QComboBox::up-arrow {{
+                image: url(assets/arrow_up.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QMenu::indicator {{
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QMenu::right-arrow {{
+                image: url(assets/arrow_right.png);
+                width: 12px;
+                height: 12px;
             }}
             
             QCalendarWidget {{
@@ -268,18 +283,80 @@ class Theme:
             /* Stili per le scrollbar nei dialoghi */
             QDialog QScrollBar:vertical {{
                 background-color: {self.secondary_bg_color};
-                width: 12px;
-                margin: 0px;
+                width: 16px;
+                margin: 16px 0 16px 0;
             }}
             
             QDialog QScrollBar::handle:vertical {{
                 background-color: {self.primary_color};
-                border-radius: 6px;
                 min-height: 20px;
+                border-radius: 3px;
+                margin: 2px;
             }}
             
-            QDialog QScrollBar::handle:vertical:hover {{
-                background-color: {self.hover_color};
+            QDialog QScrollBar::add-line:vertical {{
+                background-color: {self.secondary_bg_color};
+                height: 16px;
+                subcontrol-position: bottom;
+                subcontrol-origin: margin;
+            }}
+            
+            QDialog QScrollBar::sub-line:vertical {{
+                background-color: {self.secondary_bg_color};
+                height: 16px;
+                subcontrol-position: top;
+                subcontrol-origin: margin;
+            }}
+            
+            QDialog QScrollBar::up-arrow:vertical {{
+                image: url(assets/arrow_up.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QDialog QScrollBar::down-arrow:vertical {{
+                image: url(assets/arrow_down.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QDialog QScrollBar:horizontal {{
+                background-color: {self.secondary_bg_color};
+                height: 16px;
+                margin: 0 16px 0 16px;
+            }}
+            
+            QDialog QScrollBar::handle:horizontal {{
+                background-color: {self.primary_color};
+                min-width: 20px;
+                border-radius: 3px;
+                margin: 2px;
+            }}
+            
+            QDialog QScrollBar::add-line:horizontal {{
+                background-color: {self.secondary_bg_color};
+                width: 16px;
+                subcontrol-position: right;
+                subcontrol-origin: margin;
+            }}
+            
+            QDialog QScrollBar::sub-line:horizontal {{
+                background-color: {self.secondary_bg_color};
+                width: 16px;
+                subcontrol-position: left;
+                subcontrol-origin: margin;
+            }}
+            
+            QDialog QScrollBar::left-arrow:horizontal {{
+                image: url(assets/arrow_left.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QDialog QScrollBar::right-arrow:horizontal {{
+                image: url(assets/arrow_right.png);
+                width: 12px;
+                height: 12px;
             }}
             
             QFrame {{
@@ -307,6 +384,54 @@ class Theme:
             
             QTabBar::tab:!selected {{
                 margin-top: 2px;
+            }}
+            
+            QScrollBar::up-arrow {{
+                image: url(assets/arrow_up.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QScrollBar::down-arrow {{
+                image: url(assets/arrow_down.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QScrollBar::left-arrow {{
+                image: url(assets/arrow_left.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QScrollBar::right-arrow {{
+                image: url(assets/arrow_right.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QSpinBox::up-button {{
+                image: url(assets/arrow_up.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QSpinBox::down-button {{
+                image: url(assets/arrow_down.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QHeaderView::up-arrow {{
+                image: url(assets/arrow_up.png);
+                width: 12px;
+                height: 12px;
+            }}
+            
+            QHeaderView::down-arrow {{
+                image: url(assets/arrow_down.png);
+                width: 12px;
+                height: 12px;
             }}
         """
 

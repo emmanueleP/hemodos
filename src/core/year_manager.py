@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, QDate
 from core.database import get_db_path
 from core.logger import logger
 from PyQt5.QtCore import QSettings
@@ -12,76 +12,76 @@ class YearManager(QObject):
     
     def __init__(self):
         super().__init__()
+        self.MAX_YEAR = 2039
         
     def create_year_structure(self, year):
         """Crea la struttura completa per un nuovo anno"""
         try:
-            # Ottieni il percorso base (Locale o Cloud)/Hemodos
-            settings = QSettings('Hemodos', 'DatabaseSettings')
-            service = settings.value("cloud_service", "Locale")
+            if not isinstance(year, int) or year < 2000 or year > self.MAX_YEAR:
+                raise ValueError(f"Anno non valido. Deve essere tra 2000 e {self.MAX_YEAR}")
             
-            if service == "Locale":
-                base_path = os.path.expanduser("~/Documents/Hemodos")
-            else:
-                cloud_path = settings.value("cloud_path", "")
-                base_path = os.path.join(cloud_path, "Hemodos")
+            # Crea una data fittizia per l'anno
+            dummy_date = QDate(year, 1, 1)
+            base_path = os.path.dirname(get_db_path(dummy_date))
             
-            # Crea la directory dell'anno dentro Hemodos
-            year_path = os.path.join(base_path, str(year))
-            os.makedirs(year_path, exist_ok=True)
+            # Crea la directory dell'anno
+            os.makedirs(base_path, exist_ok=True)
             
-            # Crea i database necessari
-            self._create_main_db(year_path, year)
-            self._create_dates_db(year_path, year)
-            self._create_history_db(year_path, year)
-            self._create_stats_db(year_path, year)
+            # Database necessari:
+            required_dbs = {
+                f"hemodos_{year}.db": [
+                    '''CREATE TABLE IF NOT EXISTS annual_stats
+                        (date text, total_donations integer, 
+                         first_donations integer, completed_donations integer)''',
+                    '''CREATE TABLE IF NOT EXISTS monthly_stats
+                        (month integer, total_reservations integer, 
+                         completed_donations integer, first_donations integer)'''
+                ],
+                f"date_donazione_{year}.db": [
+                    '''CREATE TABLE IF NOT EXISTS donation_dates
+                        (date text PRIMARY KEY)'''
+                ],
+                f"cronologia_{year}.db": [
+                    '''CREATE TABLE IF NOT EXISTS history
+                        (timestamp text, action text, details text)'''
+                ]
+            }
             
-            # Emetti il segnale di creazione anno
+            # Crea i database giornalieri per tutto l'anno
+            current_date = QDate(year, 1, 1)
+            while current_date.year() == year:
+                db_path = get_db_path(current_date)
+                if not os.path.exists(db_path):
+                    conn = sqlite3.connect(db_path)
+                    c = conn.cursor()
+                    c.execute('''CREATE TABLE IF NOT EXISTS reservations
+                                (time text, name text, surname text, 
+                                 first_donation boolean DEFAULT 0,
+                                 stato text DEFAULT 'Non effettuata')''')
+                    c.execute('''CREATE TABLE IF NOT EXISTS history
+                                (timestamp text, action text, details text)''')
+                    conn.commit()
+                    conn.close()
+                current_date = current_date.addDays(1)
+            
+            # Crea i database principali
+            for db_name, tables in required_dbs.items():
+                db_path = os.path.join(base_path, db_name)
+                if not os.path.exists(db_path):
+                    conn = sqlite3.connect(db_path)
+                    c = conn.cursor()
+                    for table_sql in tables:
+                        c.execute(table_sql)
+                    conn.commit()
+                    conn.close()
+            
+            logger.info(f"Struttura per l'anno {year} creata con successo")
             self.year_created.emit(year)
-            logger.info(f"Creata struttura per l'anno {year}")
             return True
             
         except Exception as e:
-            logger.error(f"Errore nella creazione dell'anno {year}: {str(e)}")
+            logger.error(f"Errore nella creazione della struttura per l'anno {year}: {str(e)}")
             raise
-    
-    def _create_main_db(self, year_path, year):
-        db_path = os.path.join(year_path, f"hemodos_{year}.db")
-        conn = sqlite3.connect(db_path)
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS annual_stats
-                     (date text, total_donations integer, 
-                      first_donations integer, completed_donations integer)''')
-        conn.commit()
-        conn.close()
-    
-    def _create_dates_db(self, year_path, year):
-        dates_path = os.path.join(year_path, f"date_donazione_{year}.db")
-        conn = sqlite3.connect(dates_path)
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS donation_dates
-                     (year integer, date text)''')
-        conn.commit()
-        conn.close()
-    
-    def _create_history_db(self, year_path, year):
-        history_path = os.path.join(year_path, f"cronologia_{year}.db")
-        conn = sqlite3.connect(history_path)
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS history
-                     (timestamp text, action text, details text)''')
-        conn.commit()
-        conn.close()
-    
-    def _create_stats_db(self, year_path, year):
-        stats_path = os.path.join(year_path, f"statistiche_{year}.db")
-        conn = sqlite3.connect(stats_path)
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS monthly_stats
-                     (month integer, total_reservations integer, 
-                      completed_donations integer, first_donations integer)''')
-        conn.commit()
-        conn.close()
     
     def get_available_years(self):
         """Ottiene la lista degli anni disponibili"""

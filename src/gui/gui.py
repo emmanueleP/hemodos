@@ -109,12 +109,12 @@ class MainWindow(QMainWindow):
         
         file_menu.addSeparator()
 
-        export_action = QAction('Esporta in Word (.docx)', self)
+        export_action = QAction(QIcon('assets/doc.png'), 'Esporta in Word (.docx)', self)
         export_action.setShortcut('Ctrl+W')
         export_action.triggered.connect(self.export_to_docx)
         file_menu.addAction(export_action)
 
-        print_action = QAction('Stampa', self)
+        print_action = QAction(QIcon('assets/printer.png'), 'Stampa', self)
         print_action.setShortcut('Ctrl+P')
         print_action.triggered.connect(self.print_table)
         file_menu.addAction(print_action)
@@ -129,11 +129,11 @@ class MainWindow(QMainWindow):
         # Menu Strumenti
         tools_menu = menubar.addMenu('Strumenti')
         
-        history_action = QAction('Cronologia', self)
+        history_action = QAction(QIcon('assets/history.png'), 'Cronologia', self)
         history_action.triggered.connect(self.show_history)
         tools_menu.addAction(history_action)
         
-        delete_action = QAction('Elimina Database...', self)
+        delete_action = QAction(QIcon('assets/trash.png'), 'Elimina Database...', self)
         delete_action.triggered.connect(self.show_delete_dialog)
         tools_menu.addAction(delete_action)
         
@@ -159,7 +159,7 @@ class MainWindow(QMainWindow):
         about_action.triggered.connect(self.show_info)
         info_menu.addAction(about_action)
 
-        statistics_action = QAction('Statistiche', self)
+        statistics_action = QAction(QIcon('assets/stats.png'), 'Statistiche', self)
         statistics_action.triggered.connect(self.show_statistics)
         tools_menu.addAction(statistics_action)
 
@@ -210,6 +210,15 @@ class MainWindow(QMainWindow):
         # Toolbar con pulsanti
         toolbar = QHBoxLayout()
         
+        # Pulsante Aggiungi con icona
+        add_button = QPushButton()
+        add_button.setIcon(QIcon('assets/add_time.png'))
+        add_button.setIconSize(QSize(24, 24))
+        add_button.setToolTip("Aggiungi orario")
+        add_button.clicked.connect(self.show_time_entry_dialog)
+        add_button.setFixedSize(36, 36)
+        toolbar.addWidget(add_button)
+       
         # Pulsante Salva con icona
         save_button = QPushButton()
         save_button.setIcon(QIcon('assets/diskette.png'))
@@ -227,6 +236,15 @@ class MainWindow(QMainWindow):
         delete_button.clicked.connect(self.delete_reservation)
         delete_button.setFixedSize(36, 36)
         toolbar.addWidget(delete_button)
+
+        #Pulsante vai alla donazione successiva
+        go_to_next_donation_button = QPushButton()
+        go_to_next_donation_button.setIcon(QIcon('assets/blood.png'))
+        go_to_next_donation_button.setIconSize(QSize(24, 24))
+        go_to_next_donation_button.setToolTip("Vai alla donazione successiva")
+        go_to_next_donation_button.clicked.connect(self.go_to_next_donation)
+        go_to_next_donation_button.setFixedSize(36, 36)
+        toolbar.addWidget(go_to_next_donation_button)
         
         toolbar.addStretch()  # Spazio flessibile
         layout.addLayout(toolbar)
@@ -546,18 +564,18 @@ class MainWindow(QMainWindow):
     def highlight_donation_dates(self):
         """Evidenzia le date di donazione nel calendario"""
         try:
-            # Resetta il formato delle date
+            # Reset formato precedente
             self.calendar.setDateTextFormat(QDate(), QTextCharFormat())
             
             # Ottieni l'anno corrente dal calendario
-            current_year = self.calendar.selectedDate().year()
+            current_year = self.calendar.yearShown()
             
             # Formato per le date di donazione
             donation_format = QTextCharFormat()
             donation_format.setBackground(QColor("#c2fc03"))  # Verde lime
             donation_format.setForeground(QColor("#000000"))  # Testo nero
             
-            # Ottieni le date di donazione per l'anno corrente
+            # Ottieni le date di donazione
             dates = get_donation_dates(current_year)
             
             # Applica il formato alle date
@@ -568,11 +586,6 @@ class MainWindow(QMainWindow):
                 
         except Exception as e:
             logger.error(f"Errore nell'evidenziazione delle date: {str(e)}")
-            QMessageBox.warning(
-                self,
-                "Errore",
-                f"Errore nell'evidenziazione delle date di donazione: {str(e)}"
-            )
 
     def show_history(self):
         dialog = HistoryDialog(self)
@@ -1151,4 +1164,114 @@ class MainWindow(QMainWindow):
                 self,
                 "Errore",
                 f"Errore nel caricamento del database giornaliero: {str(e)}"
+            )
+
+    def go_to_next_donation(self):
+        """Va alla prossima data di donazione"""
+        try:
+            current_date = self.calendar.selectedDate()
+            current_year = current_date.year()
+            
+            # Ottieni tutte le date di donazione dell'anno
+            donation_dates = get_donation_dates(current_year)
+            
+            if not donation_dates:
+                logger.info("Nessuna data di donazione trovata")
+                return
+            
+            # Converti le date in oggetti QDate
+            dates = []
+            for date_str in donation_dates:
+                date = QDate.fromString(date_str, "yyyy-MM-dd")
+                if date.isValid():
+                    dates.append(date)
+            
+            # Ordina le date
+            dates.sort()
+            
+            # Trova la prossima data di donazione
+            next_date = None
+            for date in dates:
+                if date > current_date:
+                    next_date = date
+                    break
+            
+            # Se non ci sono date successive, prendi la prima dell'anno successivo
+            if not next_date:
+                next_year_dates = get_donation_dates(current_year + 1)
+                if next_year_dates:
+                    next_date = QDate.fromString(min(next_year_dates), "yyyy-MM-dd")
+            
+            # Se abbiamo trovato una data valida, vai a quella data
+            if next_date and next_date.isValid():
+                self.calendar.setSelectedDate(next_date)
+                self.statusBar.showMessage(
+                    f"Prossima donazione: {next_date.toString('dd/MM/yyyy')}", 
+                    3000
+                )
+            else:
+                self.statusBar.showMessage(
+                    "Nessuna data di donazione successiva trovata", 
+                    3000
+                )
+            
+        except Exception as e:
+            logger.error(f"Errore nel passaggio alla donazione successiva: {str(e)}")
+
+    def create_menus(self):
+        """Crea i menu dell'applicazione"""
+        menubar = self.menuBar()
+        
+        # Menu File
+        file_menu = menubar.addMenu('File')
+        file_menu.addAction(self.export_action)
+        file_menu.addAction(self.print_action)
+        file_menu.addSeparator()
+        file_menu.addAction(self.exit_action)
+        
+        # Menu Strumenti
+        tools_menu = menubar.addMenu('Strumenti')
+        
+        # Azione Cronologia
+        history_action = QAction(QIcon('assets/history.png'), 'Cronologia', self)
+        history_action.setStatusTip('Visualizza la cronologia delle operazioni')
+        history_action.triggered.connect(self.show_history)
+        tools_menu.addAction(history_action)
+        
+        # Azione Statistiche
+        stats_action = QAction(QIcon('assets/stats.png'), 'Statistiche', self)
+        stats_action.setStatusTip('Visualizza le statistiche delle donazioni')
+        stats_action.triggered.connect(self.show_statistics)
+        tools_menu.addAction(stats_action)
+        
+        # Azione Gestione Database
+        db_action = QAction(QIcon('assets/database.png'), 'Gestione Database', self)
+        db_action.setStatusTip('Gestisci i database delle donazioni')
+        db_action.triggered.connect(self.show_database_manager)
+        tools_menu.addAction(db_action)
+        
+        tools_menu.addSeparator()
+        
+        # Azione Impostazioni
+        settings_action = QAction(QIcon('assets/settings.png'), 'Impostazioni', self)
+        settings_action.setStatusTip('Configura le impostazioni dell\'applicazione')
+        settings_action.triggered.connect(self.show_settings)
+        tools_menu.addAction(settings_action)
+        
+        # Menu Aiuto
+        help_menu = menubar.addMenu('Aiuto')
+        help_menu.addAction(self.manual_action)
+        help_menu.addAction(self.about_action)
+
+    def show_database_manager(self):
+        """Mostra il gestore database"""
+        try:
+            dialog = DeleteFilesDialog(self)
+            dialog.exec_()
+        except Exception as e:
+            logger.error(f"Errore nell'apertura del gestore database: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nell'apertura del gestore database: {str(e)}"
             )
