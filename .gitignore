@@ -43,7 +43,7 @@ build.sh
 *.bak
 hemodos.spec
 *iss
-*txt
+file_version_info.txt
 config.json
 
 # Build and Installer
