@@ -13,7 +13,7 @@ import os
 import shutil
 from datetime import datetime
 import sqlite3
-from core.year_manager import YearManager
+from core.managers.year_manager import YearManager
 from core.logger import logger
 from core.themes import THEMES
 from core.delete_db_logic import get_base_path
@@ -733,6 +733,29 @@ class SettingsDialog(HemodosDialog):
         years_tab = QWidget()
         layout = QVBoxLayout()
         
+        # Lista anni esistenti
+        existing_group = QGroupBox("Anni Esistenti")
+        existing_layout = QVBoxLayout()
+        
+        # Aggiungi label informativa
+        info_label = QLabel("Anni presenti nel sistema:")
+        info_label.setStyleSheet("font-weight: bold;")
+        existing_layout.addWidget(info_label)
+        
+        # Lista con gli anni
+        self.years_list = QListWidget()
+        self.years_list.setMinimumHeight(200)
+        self.load_existing_years()
+        existing_layout.addWidget(self.years_list)
+        
+        # Aggiungi pulsante refresh
+        refresh_btn = QPushButton("Aggiorna Lista")
+        refresh_btn.clicked.connect(self.load_existing_years)
+        existing_layout.addWidget(refresh_btn)
+        
+        existing_group.setLayout(existing_layout)
+        layout.addWidget(existing_group)
+        
         # Gruppo per la creazione di un nuovo anno
         new_year_group = QGroupBox("Crea Nuovo Anno")
         new_year_layout = QVBoxLayout()
@@ -756,38 +779,52 @@ class SettingsDialog(HemodosDialog):
         new_year_group.setLayout(new_year_layout)
         layout.addWidget(new_year_group)
         
-        # Lista anni esistenti
-        existing_group = QGroupBox("Anni Esistenti")
-        existing_layout = QVBoxLayout()
-        
-        self.years_list = QListWidget()
-        self.load_existing_years()
-        existing_layout.addWidget(self.years_list)
-        
-        existing_group.setLayout(existing_layout)
-        layout.addWidget(existing_group)
-        
         years_tab.setLayout(layout)
         return years_tab
 
     def load_existing_years(self):
         """Carica la lista degli anni esistenti"""
-        self.years_list.clear()
-        base_path = os.path.dirname(get_db_path())
-        
-        if os.path.exists(base_path):
-            years = set()
-            for filename in os.listdir(base_path):
-                if os.path.isdir(os.path.join(base_path, filename)):
-                    try:
-                        year = int(filename)
-                        years.add(year)
-                    except ValueError:
-                        continue
+        try:
+            self.years_list.clear()
             
-            for year in sorted(years, reverse=True):
-                item = QListWidgetItem(str(year))
-                self.years_list.addItem(item)
+            # Ottieni il percorso base
+            settings = QSettings('Hemodos', 'DatabaseSettings')
+            service = settings.value("cloud_service", "Locale")
+            
+            if service == "Locale":
+                base_path = os.path.expanduser("~/Documents/Hemodos")
+            else:
+                cloud_path = settings.value("cloud_path", "")
+                base_path = os.path.join(cloud_path, "Hemodos")
+            
+            if os.path.exists(base_path):
+                years = []
+                for item in os.listdir(base_path):
+                    item_path = os.path.join(base_path, item)
+                    if os.path.isdir(item_path):
+                        try:
+                            year = int(item)
+                            years.append(year)
+                        except ValueError:
+                            continue
+                
+                # Ordina gli anni in ordine decrescente
+                years.sort(reverse=True)
+                
+                # Aggiungi gli anni alla lista
+                for year in years:
+                    item = QListWidgetItem(f"Anno {year}")
+                    item.setTextAlignment(Qt.AlignCenter)
+                    self.years_list.addItem(item)
+                    
+                if not years:
+                    self.years_list.addItem("Nessun anno presente")
+            else:
+                self.years_list.addItem("Directory Hemodos non trovata")
+                
+        except Exception as e:
+            logger.error(f"Errore nel caricamento degli anni: {str(e)}")
+            self.years_list.addItem("Errore nel caricamento degli anni")
 
     def create_year_structure(self):
         """Crea la struttura delle directory e dei database per il nuovo anno"""
@@ -813,7 +850,7 @@ class SettingsDialog(HemodosDialog):
     
     def on_year_created(self, year):
         """Gestisce la creazione di un nuovo anno"""
-        self.load_existing_years()  # Ricarica la lista degli anni
+        self.load_donation_dates_for_year(year)
 
     def load_donation_dates(self):
         """Carica le date di donazione nella lista"""
@@ -856,3 +893,38 @@ class SettingsDialog(HemodosDialog):
                 "Errore",
                 f"Errore nel caricamento delle date di donazione: {str(e)}"
             )
+
+    def _init_year_group(self):
+        """Inizializza il gruppo delle impostazioni dell'anno"""
+        year_group = QGroupBox("Gestione Anno")
+        layout = QVBoxLayout()
+        
+        # Aggiungi pulsante per creare struttura
+        create_structure_btn = QPushButton("Crea Struttura Anno")
+        create_structure_btn.clicked.connect(self._create_year_structure)
+        layout.addWidget(create_structure_btn)
+        
+        year_group.setLayout(layout)
+        return year_group
+
+    def _create_year_structure(self):
+        """Crea la struttura dell'anno corrente"""
+        try:
+            year = int(self.year_combo.currentText())  # Usa l'anno selezionato
+            if self.main_window.year_manager.create_year_structure(year):
+                QMessageBox.information(
+                    self,
+                    "Successo",
+                    f"Struttura anno {year} creata correttamente"
+                )
+                # Aggiorna la lista delle date
+                self.load_donation_dates_for_year(year)
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Errore",
+                    f"Errore nella creazione della struttura anno {year}"
+                )
+        except Exception as e:
+            logger.error(f"Errore nella creazione struttura anno: {str(e)}")
+            QMessageBox.critical(self, "Errore", str(e))
