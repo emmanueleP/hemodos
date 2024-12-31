@@ -47,7 +47,28 @@ class SettingsDialog(HemodosDialog):
             }
         """
         
+        # Prima inizializza l'UI
         self.init_ui()
+        
+        # Poi gestisci i pulsanti
+        # Rimuovi i pulsanti standard
+        for i in reversed(range(self.buttons_layout.count())): 
+            widget = self.buttons_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+            
+        # Crea nuovi pulsanti
+        save_btn = QPushButton("Salva")
+        save_btn.clicked.connect(self.save_settings)
+        save_btn.setStyleSheet(self.button_style)
+        
+        cancel_btn = QPushButton("Annulla")
+        cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setStyleSheet(self.button_style)
+        
+        self.buttons_layout.addStretch()
+        self.buttons_layout.addWidget(save_btn)
+        self.buttons_layout.addWidget(cancel_btn)
 
     def init_ui(self):
         # Create tab widget
@@ -367,7 +388,8 @@ class SettingsDialog(HemodosDialog):
         if path:
             self.path_edit.setText(path)
 
-    def accept(self):
+    def save_settings(self):
+        """Salva tutte le impostazioni e chiude il dialog"""
         try:
             # Salva le impostazioni generali
             self.settings.setValue("theme", self.theme_combo.currentText())
@@ -376,20 +398,17 @@ class SettingsDialog(HemodosDialog):
             self.settings.setValue("autosave_enabled", self.autosave_check.isChecked())
             self.settings.setValue("autosave_interval", self.interval_spin.value())
             
-            # Salva le date di donazione nel database
-            if self.parent:
-                # Aggiorna il calendario principale
-                self.parent.highlight_donation_dates()  # Aggiorna le date evidenziate
-                self.parent.apply_theme()  # Applica il tema
-                self.parent.setup_autosave()  # Aggiorna le impostazioni di autosave
-                
-                # Forza il refresh del calendario principale
-                current_date = self.parent.calendar.selectedDate()
-                self.parent.calendar.setSelectedDate(current_date)  # Trigger refresh
+            # Aggiorna l'interfaccia principale
+            main_window = self.parent  # Usa la proprietà parent invece di chiamarla
+            if main_window:
+                main_window.theme_manager.apply_theme()
+                main_window.calendar_manager.highlight_donation_dates()
+                main_window.autosave_manager.setup_autosave()
             
-            super().accept()
+            self.accept()  # Chiude il dialog dopo il salvataggio
+            
         except Exception as e:
-            QMessageBox.warning(self, "Errore", f"Errore durante il salvataggio: {str(e)}")
+            QMessageBox.critical(self, "Errore", f"Errore durante il salvataggio: {str(e)}")
 
     def init_general_tab(self):
         """Inizializza la tab Generali"""

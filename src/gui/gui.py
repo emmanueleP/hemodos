@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QSettings, QDate, QTimer, QTime, QSize
 from PyQt5.QtGui import QIcon, QKeySequence
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
+import sys
 
 # Importazioni managers
 from core.managers.year_manager import YearManager
@@ -32,6 +33,7 @@ from gui.dialogs.statistics_dialog import StatisticsDialog
 from gui.dialogs.manual_dialog import ManualDialog
 from config.settings import SettingsDialog
 from gui.dialogs.daily_reservations_dialog import DailyReservationsDialog
+from gui.dialogs.welcome_dialog import WelcomeDialog
 
 # Importazioni widgets
 from gui.widgets.reservations_widget import ReservationsWidget
@@ -50,7 +52,23 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
 
-        # Set window properties
+        # Controlla se è il primo avvio
+        first_run = not self.settings.value("first_run_completed", False, type=bool)
+        
+        if first_run:
+            # Mostra il dialog di benvenuto per il primo avvio
+            welcome = WelcomeDialog(self, is_first_run=True)
+            if welcome.exec_() == QDialog.Rejected:
+                sys.exit()
+            self.settings.setValue("first_run_completed", True)
+        else:
+            # Per gli avvii successivi, controlla se mostrare il bentornato
+            show_welcome = self.settings.value("show_welcome", True, type=bool)
+            if show_welcome:
+                welcome = WelcomeDialog(self, is_first_run=False)
+                welcome.exec_()
+
+        # Continua con l'inizializzazione normale
         self.setWindowTitle(self.WINDOW_TITLE)
         self.resize(*self.DEFAULT_WINDOW_SIZE)
         self.setMinimumSize(*self.MIN_WINDOW_SIZE)
@@ -184,19 +202,14 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Gestisce l'evento di chiusura dell'applicazione"""
         try:
-            # Trova la finestra delle prenotazioni se è aperta
             dialog = self.findChild(DailyReservationsDialog)
             if dialog:
-                # Salva le prenotazioni correnti
                 if dialog.save_reservations():
-                    # Ferma il monitoraggio cloud se attivo
                     if hasattr(self, 'observer') and self.observer:
                         self.observer.stop()
-                    # Ferma l'autosave
                     self.autosave_manager.stop_autosave()
                     event.accept()
                 else:
-                    # Se il salvataggio fallisce, chiedi conferma
                     reply = QMessageBox.question(
                         self, 'Conferma uscita',
                         'Il salvataggio non è riuscito. Vuoi uscire comunque?',
@@ -208,15 +221,13 @@ class MainWindow(QMainWindow):
                     else:
                         event.ignore()
             else:
-                # Se non c'è una finestra delle prenotazioni aperta, chiudi normalmente
                 if hasattr(self, 'observer') and self.observer:
                     self.observer.stop()
                 self.autosave_manager.stop_autosave()
                 event.accept()
-                
         except Exception as e:
             logger.error(f"Errore durante la chiusura: {str(e)}")
-            event.accept()  # Chiudi comunque per evitare loop
+            event.accept()
 
     def reload_database(self):
         """Ricarica il database e aggiorna le informazioni"""
@@ -243,8 +254,8 @@ class MainWindow(QMainWindow):
             # Mostra messaggio di conferma
             self.status_manager.show_message(
                 f"Database ricaricato: {selected_date.toString('dd/MM/yyyy')}", 
-                3000
-            )
+                    3000
+                )
             
         except Exception as e:
             self._handle_error("la ricarica del database", e)

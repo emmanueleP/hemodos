@@ -6,10 +6,13 @@ from PyQt5.QtCore import QSettings, Qt, QDate
 from PyQt5.QtGui import QIcon, QPixmap
 import os
 from core.database import get_db_path
+from core.delete_db_logic import get_base_path
+from core.logger import logger
+import sqlite3
 
 class FirstRunDialog(HemodosDialog):
     def __init__(self, parent=None):
-        super().__init__(parent, "Benvenuto in Hemodos")
+        super().__init__(parent, "Gestione database Hemodos")
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
         self.selected_option = None
         self.init_ui()
@@ -130,7 +133,7 @@ class FirstRunDialog(HemodosDialog):
                 self.settings.setValue("cloud_service", "Locale")
                 
             elif self.selected_option == 2:  # Database locale esistente
-                # Prima seleziona la cartella base Hemodos
+                # Seleziona la cartella Hemodos
                 base_path = QFileDialog.getExistingDirectory(
                     self, 
                     "Seleziona la cartella Hemodos",
@@ -139,29 +142,17 @@ class FirstRunDialog(HemodosDialog):
                 if not base_path:
                     return
                     
-                # Poi seleziona l'anno
-                years = [d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d)) and d.isdigit()]
-                if not years:
-                    QMessageBox.warning(self, "Errore", "Nessuna cartella anno trovata")
-                    return
+                # Verifica se la cartella selezionata è un anno
+                if os.path.basename(base_path).isdigit():
+                    year = os.path.basename(base_path)
+                    self.settings.setValue("selected_year", year)
+                    self.settings.setValue("cloud_service", "Locale")
                     
-                year, ok = QInputDialog.getItem(
-                    self, 
-                    "Seleziona Anno",
-                    "Scegli l'anno da aprire:",
-                    sorted(years, reverse=True),
-                    0, False
-                )
-                if not ok:
+                    # Carica i database dell'anno selezionato
+                    self.load_year_databases(base_path, year)
+                else:
+                    QMessageBox.warning(self, "Errore", "Seleziona una cartella anno valida")
                     return
-                    
-                year_path = os.path.join(base_path, year)
-                if not os.path.exists(year_path):
-                    QMessageBox.warning(self, "Errore", f"Cartella anno {year} non trovata")
-                    return
-                    
-                self.settings.setValue("cloud_service", "Locale")
-                self.settings.setValue("selected_year", year)
                 
             elif self.selected_option == 3:  # OneDrive
                 onedrive_path = self._get_onedrive_path()
@@ -192,6 +183,22 @@ class FirstRunDialog(HemodosDialog):
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Errore durante la configurazione: {str(e)}")
 
+    def load_year_databases(self, base_path, year):
+        """Carica i database per l'anno selezionato"""
+        try:
+            # Imposta il percorso del database
+            db_path = os.path.join(base_path, f"hemodos_{year}.db")
+            self.settings.setValue("last_database", db_path)
+            
+            # Carica i dati dal database
+            self.parent().database_manager.load_current_day()
+            self.parent().calendar_manager.highlight_donation_dates()
+            
+            QMessageBox.information(self, "Successo", f"Database dell'anno {year} caricato con successo")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Errore nel caricamento dei database: {str(e)}")
+
     def _get_onedrive_path(self):
         """Trova il percorso di OneDrive"""
         possible_paths = [
@@ -210,3 +217,72 @@ class FirstRunDialog(HemodosDialog):
             "C:/Users/" + os.getlogin() + "/GoogleDrive",
         ]
         return next((path for path in possible_paths if os.path.exists(path)), None)
+
+    def add_donation_date(self):
+        """Aggiunge una data di donazione"""
+        try:
+            selected_date = self.donation_calendar.selectedDate()
+            
+            # Verifica che la data sia nell'anno corrente
+            if selected_date.year() != self.current_year:
+                QMessageBox.warning(
+                    self,
+                    "Attenzione",
+                    "Puoi aggiungere date solo per l'anno corrente"
+                )
+                return
+            
+            # Formatta la data
+            date_str = selected_date.toString("yyyy-MM-dd")
+            
+            # Usa get_db_path per ottenere il percorso corretto
+            base_path = get_base_path()
+            year_path = os.path.join(base_path, str(self.current_year))
+            
+            # Crea la directory se non esiste
+            os.makedirs(year_path, exist_ok=True)
+            
+            # Percorso del database delle date di donazione
+            db_path = os.path.join(year_path, f"date_donazione_{self.current_year}.db")
+            
+            conn = sqlite3.connect(db_path)
+            c = conn.cursor()
+            
+            # Crea la tabella se non esiste
+            c.execute('''CREATE TABLE IF NOT EXISTS donation_dates
+                         (date text PRIMARY KEY)''')
+            
+            # Inserisci la data
+            try:
+                c.execute("INSERT INTO donation_dates (date) VALUES (?)", (date_str,))
+                conn.commit()
+                
+                # Aggiorna la lista
+                self.load_donation_dates()
+                
+                # Aggiorna il calendario principale se esiste
+                if hasattr(self, 'parent') and self.parent:
+                    self.parent().calendar_manager.highlight_donation_dates()
+                
+                QMessageBox.information(
+                    self,
+                    "Successo",
+                    f"Data di donazione aggiunta: {selected_date.toString('dd/MM/yyyy')}"
+                )
+                
+            except sqlite3.IntegrityError:
+                QMessageBox.warning(
+                    self,
+                    "Attenzione",
+                    "Questa data è già presente nel calendario donazioni"
+                )
+            
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Errore nell'aggiunta della data di donazione: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nell'aggiunta della data di donazione: {str(e)}"
+            )
