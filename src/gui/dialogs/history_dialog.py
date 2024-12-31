@@ -1,22 +1,40 @@
 from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QTableWidget, QTableWidgetItem,
-                            QPushButton, QHBoxLayout, QComboBox, QLabel)
-from PyQt5.QtCore import Qt
+                            QPushButton, QHBoxLayout, QComboBox, QLabel, QMessageBox)
+from PyQt5.QtCore import Qt, QDate, QSettings, QSize
 from PyQt5.QtGui import QIcon
 import os
 from core.database import get_history, get_db_path
-from core.delete_db_logic import get_available_years
+from core.delete_db_logic import get_available_years, get_base_path
 import sqlite3
 from datetime import datetime
 from core.logger import logger
 
 class HistoryDialog(HemodosDialog):
     def __init__(self, parent=None):
-        super().__init__(parent, "Cronologia")
-        self.setMinimumSize(800, 500)
+        super().__init__(parent, "Cronologia Prenotazioni")
+        self.settings = QSettings('Hemodos', 'DatabaseSettings')
         self.init_ui()
 
     def init_ui(self):
+        # Layout principale
+        layout = QVBoxLayout()
+        
+        # Toolbar
+        toolbar = QHBoxLayout()
+        
+        # Pulsante elimina cronologia
+        delete_btn = QPushButton()
+        delete_btn.setIcon(QIcon('assets/trash.png'))
+        delete_btn.setIconSize(QSize(24, 24))
+        delete_btn.setToolTip("Elimina cronologia dell'anno")
+        delete_btn.clicked.connect(self.delete_history)
+        delete_btn.setFixedSize(36, 36)
+        toolbar.addWidget(delete_btn)
+        
+        toolbar.addStretch()
+        layout.addLayout(toolbar)
+        
         # Header con selezione anno
         header_layout = QHBoxLayout()
         
@@ -64,7 +82,7 @@ class HistoryDialog(HemodosDialog):
         header_layout.addLayout(year_group)
         
         header_layout.addStretch()
-        self.content_layout.addLayout(header_layout)
+        layout.addLayout(header_layout)
         
         # Tabella cronologia
         self.history_table = QTableWidget()
@@ -182,3 +200,45 @@ class HistoryDialog(HemodosDialog):
                 
         except Exception as e:
             logger.error(f"Errore nel caricamento della cronologia: {str(e)}") 
+
+    def delete_history(self):
+        """Elimina la cronologia dell'anno corrente"""
+        try:
+            reply = QMessageBox.question(
+                self,
+                'Conferma eliminazione',
+                'Sei sicuro di voler eliminare tutta la cronologia di quest\'anno?',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+                # Ottieni l'anno corrente
+                current_year = QDate.currentDate().year()
+                
+                # Percorso del database cronologia
+                base_path = get_base_path()
+                db_path = os.path.join(base_path, str(current_year), f"cronologia_{current_year}.db")
+                
+                # Elimina i dati dalla tabella
+                conn = sqlite3.connect(db_path)
+                c = conn.cursor()
+                c.execute("DELETE FROM history")
+                conn.commit()
+                conn.close()
+                
+                # Aggiorna la visualizzazione
+                self.load_history()
+                
+                QMessageBox.information(
+                    self,
+                    "Successo",
+                    "Cronologia eliminata con successo"
+                )
+                
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore durante l'eliminazione della cronologia: {str(e)}"
+            ) 

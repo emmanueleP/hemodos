@@ -41,6 +41,16 @@ class ManualDialog(HemodosDialog):
             <li>Esportazione dati in formato DOCX</li>
             <li>Sincronizzazione cloud (OneDrive/Google Drive)</li>
             <li>Backup automatico dei dati</li>
+            <li>Gestione multi-anno con archivio storico</li>
+            <li>Sistema di cronologia con tracciamento modifiche</li>
+        </ul>
+
+        <h3>Primo Avvio:</h3>
+        <p>Al primo avvio, verrai guidato attraverso:</p>
+        <ul>
+            <li>Configurazione del database (locale o cloud)</li>
+            <li>Impostazione delle date di donazione</li>
+            <li>Personalizzazione delle preferenze</li>
         </ul>
         """
         return self.create_text_tab(content)
@@ -102,7 +112,13 @@ class ManualDialog(HemodosDialog):
         <h2>Strumenti Disponibili</h2>
 
         <h3>Cronologia</h3>
-        <p>Visualizza lo storico completo delle modifiche e delle operazioni effettuate.</p>
+        <p>Visualizza lo storico completo delle modifiche e delle operazioni effettuate:</p>
+        <ul>
+            <li>Registro dettagliato di tutte le modifiche</li>
+            <li>Filtro per anno</li>
+            <li>Possibilità di eliminare la cronologia dell'anno corrente</li>
+            <li>Tracciamento automatico delle modifiche</li>
+        </ul>
 
         <h3>Statistiche</h3>
         <p>Fornisce analisi dettagliate su:</p>
@@ -112,21 +128,17 @@ class ManualDialog(HemodosDialog):
             <li>Totali annuali</li>
             <li>Prime donazioni</li>
             <li>Percentuali di completamento</li>
-        </ul>
-
-        <h3>Esportazione</h3>
-        <ul>
-            <li>Esportazione in DOCX con layout personalizzabile</li>
-            <li>Inclusione logo personalizzato</li>
-            <li>Stampa diretta dei report</li>
+            <li>Confronto tra anni diversi</li>
         </ul>
 
         <h3>Gestione Database</h3>
         <ul>
             <li>Creazione nuovo database</li>
             <li>Apertura database esistente</li>
+            <li>Gestione multi-anno</li>
             <li>Eliminazione database vecchi</li>
             <li>Backup automatico</li>
+            <li>Sincronizzazione cloud</li>
         </ul>
         """
         return self.create_text_tab(content)

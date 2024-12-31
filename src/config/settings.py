@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel,
                             QTabWidget, QWidget, QGroupBox, QFormLayout,
                             QCalendarWidget, QListWidget, QListWidgetItem,
                             QCheckBox, QSpinBox, QMessageBox, QTextBrowser,
-                            QProgressDialog)
+                            QProgressDialog, QMainWindow)
 from PyQt5.QtCore import QSettings, QDate, Qt, QRegExp
 from PyQt5.QtGui import QRegExpValidator, QTextCharFormat, QColor, QPixmap
 from core.database import (add_donation_date, get_donation_dates, delete_donation_date, 
@@ -398,16 +398,28 @@ class SettingsDialog(HemodosDialog):
             self.settings.setValue("autosave_enabled", self.autosave_check.isChecked())
             self.settings.setValue("autosave_interval", self.interval_spin.value())
             
-            # Aggiorna l'interfaccia principale
-            main_window = self.parent  # Usa la proprietà parent invece di chiamarla
+            # Trova la MainWindow
+            main_window = None
+            current = self.parent  # Usa la proprietà parent invece del metodo
+            while current:
+                if isinstance(current, QMainWindow):
+                    main_window = current
+                    break
+                current = current.parent  # Usa la proprietà parent
+            
+            # Aggiorna l'interfaccia principale se disponibile
             if main_window:
-                main_window.theme_manager.apply_theme()
-                main_window.calendar_manager.highlight_donation_dates()
-                main_window.autosave_manager.setup_autosave()
+                if hasattr(main_window, 'theme_manager'):
+                    main_window.theme_manager.apply_theme()
+                if hasattr(main_window, 'calendar_manager'):
+                    main_window.calendar_manager.highlight_donation_dates()
+                if hasattr(main_window, 'autosave_manager'):
+                    main_window.autosave_manager.setup_autosave()
             
             self.accept()  # Chiude il dialog dopo il salvataggio
             
         except Exception as e:
+            logger.error(f"Errore durante il salvataggio delle impostazioni: {str(e)}")
             QMessageBox.critical(self, "Errore", f"Errore durante il salvataggio: {str(e)}")
 
     def init_general_tab(self):

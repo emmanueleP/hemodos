@@ -61,12 +61,16 @@ class MainWindow(QMainWindow):
             if welcome.exec_() == QDialog.Rejected:
                 sys.exit()
             self.settings.setValue("first_run_completed", True)
+            self.settings.setValue("show_welcome", False)  # Disabilita il bentornato dopo il primo avvio
         else:
             # Per gli avvii successivi, controlla se mostrare il bentornato
             show_welcome = self.settings.value("show_welcome", True, type=bool)
-            if show_welcome:
+            session_shown = self.settings.value("welcome_shown_this_session", False, type=bool)
+            
+            if show_welcome and not session_shown:
                 welcome = WelcomeDialog(self, is_first_run=False)
                 welcome.exec_()
+                self.settings.setValue("welcome_shown_this_session", True)
 
         # Continua con l'inizializzazione normale
         self.setWindowTitle(self.WINDOW_TITLE)
@@ -225,6 +229,11 @@ class MainWindow(QMainWindow):
                     self.observer.stop()
                 self.autosave_manager.stop_autosave()
                 event.accept()
+            
+            # Reset del flag di sessione alla chiusura
+            self.settings.remove("welcome_shown_this_session")
+            
+            event.accept()
         except Exception as e:
             logger.error(f"Errore durante la chiusura: {str(e)}")
             event.accept()

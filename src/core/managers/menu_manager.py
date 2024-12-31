@@ -15,13 +15,13 @@ class MenuManager:
         file_menu = menubar.addMenu('File')
         
         # Add Time Entry action
-        add_time_action = QAction('Aggiungi Orario', main_window)
+        add_time_action = QAction(QIcon('assets/add_time.png'), 'Aggiungi Orario', main_window)
         add_time_action.setShortcut('Ctrl+T')
         add_time_action.triggered.connect(main_window.show_time_entry_dialog)
         file_menu.addAction(add_time_action)
         
         # Save action
-        save_action = QAction('Salva', main_window)
+        save_action = QAction(QIcon('assets/diskette.png'), 'Salva', main_window)
         save_action.setShortcut('Ctrl+S')
         save_action.triggered.connect(self._save_current_reservations)
         file_menu.addAction(save_action)
@@ -78,7 +78,7 @@ class MenuManager:
         settings_menu = menubar.addMenu('Impostazioni')
         
         # Preferences action
-        preferences_action = QAction('Preferenze', main_window)
+        preferences_action = QAction(QIcon('assets/cogwheel.png'), 'Preferenze', main_window)
         preferences_action.triggered.connect(main_window.show_settings)
         settings_menu.addAction(preferences_action)
 
@@ -86,7 +86,7 @@ class MenuManager:
         info_menu = menubar.addMenu('Info')
         
         # Manual action
-        manual_action = QAction('Manuale', main_window)
+        manual_action = QAction(QIcon('assets/user_guide.png'), 'Manuale', main_window)
         manual_action.setShortcut('F1')
         manual_action.triggered.connect(main_window.show_manual)
         info_menu.addAction(manual_action)

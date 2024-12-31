@@ -2,7 +2,7 @@ from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QPushButton, 
                             QHBoxLayout, QCheckBox, QDialog)
 from PyQt5.QtCore import Qt, QSettings
-from PyQt5.QtGui import QPixmap, QFont
+from PyQt5.QtGui import QPixmap, QFont, QIcon
 from gui.dialogs.database_dialog import FirstRunDialog
 
 class WelcomeDialog(HemodosDialog):
@@ -30,7 +30,7 @@ class WelcomeDialog(HemodosDialog):
         
         # Messaggio
         welcome_text = QLabel()
-        welcome_text.setFont(QFont('Arial', 16))
+        welcome_text.setFont(QFont('Arial', 14))
         welcome_text.setStyleSheet("color: #ffffff;")
         
         if self.is_first_run:
@@ -75,6 +75,26 @@ class WelcomeDialog(HemodosDialog):
         # Pulsanti
         buttons_layout = QHBoxLayout()
         
+        # Pulsante manuale (aggiunto a sinistra)
+        manual_btn = QPushButton()
+        manual_btn.setIcon(QIcon('assets/user_guide.png'))  # Assicurati di avere questa icona
+        manual_btn.setToolTip("Apri Manuale")
+        manual_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+                border-radius: 3px;
+            }
+        """)
+        manual_btn.clicked.connect(self.show_manual)
+        buttons_layout.addWidget(manual_btn)
+        
+        buttons_layout.addStretch()  # Spazio flessibile tra i pulsanti
+        
         if self.is_first_run:
             config_btn = QPushButton("Configura")
             config_btn.setStyleSheet(self.button_style)
@@ -87,7 +107,7 @@ class WelcomeDialog(HemodosDialog):
             
             start_btn = QPushButton("Inizia")
             start_btn.setStyleSheet(self.button_style)
-            start_btn.clicked.connect(self.accept)
+            start_btn.clicked.connect(self.close)
             
             buttons_layout.addWidget(settings_btn)
             buttons_layout.addWidget(start_btn)
@@ -106,9 +126,22 @@ class WelcomeDialog(HemodosDialog):
         settings_dialog = SettingsDialog(self)
         settings_dialog.exec_()
 
+    def close(self):
+        """Chiude il dialog e salva le preferenze"""
+        if not self.is_first_run and hasattr(self, 'show_again_cb'):
+            if self.show_again_cb.isChecked():
+                self.settings.setValue("show_welcome", False)
+        self.accept()
+
     def accept(self):
         """Salva la preferenza e chiude"""
         if not self.is_first_run and hasattr(self, 'show_again_cb'):
             if self.show_again_cb.isChecked():
                 self.settings.setValue("show_welcome", False)
-        super().accept() 
+        super().accept()
+
+    def show_manual(self):
+        """Apre la finestra del manuale"""
+        from gui.dialogs.manual_dialog import ManualDialog
+        manual = ManualDialog(self)
+        manual.exec_() 
