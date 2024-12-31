@@ -6,7 +6,7 @@ from PyQt5.QtGui import QPixmap, QFont
 
 class WelcomeDialog(HemodosDialog):
     def __init__(self, parent=None):
-        super().__init__(parent, "Benvenuto in Hemodos")
+        super().__init__(parent, "Bentornato in Hemodos")
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
         self.init_ui()
 
@@ -20,7 +20,7 @@ class WelcomeDialog(HemodosDialog):
         self.content_layout.addLayout(logo_layout)
         
         # Titolo
-        title = QLabel("Benvenuto in Hemodos")
+        title = QLabel("Bentornato in Hemodos")
         title.setFont(QFont('Arial', 36, QFont.Bold))
         title.setStyleSheet("color: #004d4d;")
         title.setAlignment(Qt.AlignCenter)

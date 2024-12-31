@@ -150,6 +150,27 @@ class MainWindow(QMainWindow):
         dialog = DailyReservationsDialog(self, date)
         dialog.exec_()
 
+    def show_database_dialog(self):
+        """Mostra il dialog per la gestione del database"""
+        from gui.dialogs.database_dialog import FirstRunDialog
+        dialog = FirstRunDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            # Ricarica il database dopo il cambio di configurazione
+            self.database_manager.load_current_day()
+            self.calendar_manager.highlight_donation_dates()
+            
+            # Aggiorna le info del database con la data corrente
+            current_date = QDate.currentDate()
+            self.status_manager.update_db_info(
+                current_date.year(),
+                current_date.toString("dd/MM/yyyy")
+            )
+            
+            # Aggiorna il monitoraggio cloud se necessario
+        service = self.settings.value("cloud_service", "Locale")
+        if service != "Locale":
+                    setup_cloud_monitoring(self)
+
     def _handle_error(self, operation: str, error: Exception, show_dialog: bool = True):
         """Gestisce gli errori in modo centralizzato"""
         error_msg = f"Errore durante {operation}: {str(error)}"
@@ -196,3 +217,34 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logger.error(f"Errore durante la chiusura: {str(e)}")
             event.accept()  # Chiudi comunque per evitare loop
+
+    def reload_database(self):
+        """Ricarica il database e aggiorna le informazioni"""
+        try:
+            # Salva lo stato corrente se necessario
+            if self.settings.value("autosave_on_cloud_change", True, type=bool):
+                dialog = self.findChild(DailyReservationsDialog)
+                if dialog:
+                    dialog.save_reservations()
+            
+            # Ricarica le prenotazioni
+            selected_date = self.calendar.selectedDate()
+            self.database_manager.load_current_day()
+            
+            # Aggiorna il calendario
+            self.calendar_manager.highlight_donation_dates()
+            
+            # Aggiorna le informazioni nella status bar
+            self.status_manager.update_db_info(
+                selected_date.year(),
+                selected_date.toString("dd/MM/yyyy")
+            )
+            
+            # Mostra messaggio di conferma
+            self.status_manager.show_message(
+                f"Database ricaricato: {selected_date.toString('dd/MM/yyyy')}", 
+                3000
+            )
+            
+        except Exception as e:
+            self._handle_error("la ricarica del database", e)

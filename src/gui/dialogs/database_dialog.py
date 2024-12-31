@@ -1,8 +1,8 @@
 from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QPushButton, 
                             QLabel, QRadioButton, QButtonGroup, QFileDialog,
-                            QMessageBox, QGroupBox, QWidget)
-from PyQt5.QtCore import QSettings, Qt
+                            QMessageBox, QGroupBox, QWidget, QInputDialog)
+from PyQt5.QtCore import QSettings, Qt, QDate
 from PyQt5.QtGui import QIcon, QPixmap
 import os
 from core.database import get_db_path
@@ -120,4 +120,93 @@ class FirstRunDialog(HemodosDialog):
             return
 
         self.selected_option = self.button_group.id(selected_button)
-        self.accept()
+        
+        try:
+            if self.selected_option == 1:  # Nuovo database locale
+                # Crea la directory Hemodos in Documenti
+                base_path = os.path.expanduser("~/Documents/Hemodos")
+                year_path = os.path.join(base_path, str(QDate.currentDate().year()))
+                os.makedirs(year_path, exist_ok=True)
+                self.settings.setValue("cloud_service", "Locale")
+                
+            elif self.selected_option == 2:  # Database locale esistente
+                # Prima seleziona la cartella base Hemodos
+                base_path = QFileDialog.getExistingDirectory(
+                    self, 
+                    "Seleziona la cartella Hemodos",
+                    os.path.expanduser("~/Documents")
+                )
+                if not base_path:
+                    return
+                    
+                # Poi seleziona l'anno
+                years = [d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d)) and d.isdigit()]
+                if not years:
+                    QMessageBox.warning(self, "Errore", "Nessuna cartella anno trovata")
+                    return
+                    
+                year, ok = QInputDialog.getItem(
+                    self, 
+                    "Seleziona Anno",
+                    "Scegli l'anno da aprire:",
+                    sorted(years, reverse=True),
+                    0, False
+                )
+                if not ok:
+                    return
+                    
+                year_path = os.path.join(base_path, year)
+                if not os.path.exists(year_path):
+                    QMessageBox.warning(self, "Errore", f"Cartella anno {year} non trovata")
+                    return
+                    
+                self.settings.setValue("cloud_service", "Locale")
+                self.settings.setValue("selected_year", year)
+                
+            elif self.selected_option == 3:  # OneDrive
+                onedrive_path = self._get_onedrive_path()
+                if not onedrive_path:
+                    QMessageBox.warning(self, "Errore", "Cartella OneDrive non trovata")
+                    return
+                # Crea la directory dell'anno corrente in Hemodos
+                base_path = os.path.join(onedrive_path, "Hemodos")
+                year_path = os.path.join(base_path, str(QDate.currentDate().year()))
+                os.makedirs(year_path, exist_ok=True)
+                self.settings.setValue("cloud_service", "OneDrive")
+                self.settings.setValue("cloud_path", onedrive_path)
+                
+            elif self.selected_option == 4:  # Google Drive
+                gdrive_path = self._get_gdrive_path()
+                if not gdrive_path:
+                    QMessageBox.warning(self, "Errore", "Cartella Google Drive non trovata")
+                    return
+                # Crea la directory dell'anno corrente in Hemodos
+                base_path = os.path.join(gdrive_path, "Hemodos")
+                year_path = os.path.join(base_path, str(QDate.currentDate().year()))
+                os.makedirs(year_path, exist_ok=True)
+                self.settings.setValue("cloud_service", "GoogleDrive")
+                self.settings.setValue("cloud_path", gdrive_path)
+            
+            self.accept()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Errore durante la configurazione: {str(e)}")
+
+    def _get_onedrive_path(self):
+        """Trova il percorso di OneDrive"""
+        possible_paths = [
+            os.path.expanduser("~/OneDrive"),
+            os.path.expanduser("~/OneDrive - Personal"),
+            "C:/Users/" + os.getlogin() + "/OneDrive",
+        ]
+        return next((path for path in possible_paths if os.path.exists(path)), None)
+
+    def _get_gdrive_path(self):
+        """Trova il percorso di Google Drive"""
+        possible_paths = [
+            os.path.expanduser("~/Google Drive"),
+            os.path.expanduser("~/GoogleDrive"),
+            "C:/Users/" + os.getlogin() + "/Google Drive",
+            "C:/Users/" + os.getlogin() + "/GoogleDrive",
+        ]
+        return next((path for path in possible_paths if os.path.exists(path)), None)

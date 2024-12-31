@@ -41,6 +41,12 @@ class MenuManager:
         file_menu.addAction(print_action)
         
         file_menu.addSeparator()
+
+        # Database dialog
+        database_action = QAction(QIcon('assets/refresh_data.png'), 'Database', main_window)
+        database_action.setShortcut('Ctrl+D')
+        database_action.triggered.connect(main_window.show_database_dialog)
+        file_menu.addAction(database_action)
         
         # Exit action
         exit_action = QAction('Esci', main_window)
