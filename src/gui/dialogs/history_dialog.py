@@ -129,33 +129,27 @@ class HistoryDialog(HemodosDialog):
             year = int(self.year_combo.currentText())
             self.history_table.setRowCount(0)
             
-            # Crea una data fittizia per l'anno
-            from PyQt5.QtCore import QDate
-            dummy_date = QDate(year, 1, 1)
-            
             # Ottieni il percorso base dell'anno
-            year_path = os.path.dirname(get_db_path(dummy_date))
+            base_path = get_base_path()
+            year_path = os.path.join(base_path, str(year))
             
             # Crea la directory dell'anno se non esiste
             os.makedirs(year_path, exist_ok=True)
             
             # Crea/verifica il database principale della cronologia
             history_db_path = os.path.join(year_path, f"cronologia_{year}.db")
-            if not os.path.exists(history_db_path):
-                conn = sqlite3.connect(history_db_path)
-                c = conn.cursor()
-                c.execute('''CREATE TABLE IF NOT EXISTS history
-                            (timestamp text, action text, details text)''')
-                conn.commit()
-                conn.close()
-                logger.info(f"Creato nuovo database cronologia per l'anno {year}")
+            
+            # Crea la tabella history se non esiste
+            conn = sqlite3.connect(history_db_path)
+            c = conn.cursor()
+            c.execute('''CREATE TABLE IF NOT EXISTS history
+                        (timestamp text, action text, details text)''')
+            conn.commit()
             
             # Raccogli la cronologia da tutti i database dell'anno
             all_history = []
             
             # Prima dal database principale della cronologia
-            conn = sqlite3.connect(history_db_path)
-            c = conn.cursor()
             c.execute("SELECT * FROM history ORDER BY timestamp DESC")
             all_history.extend(c.fetchall())
             conn.close()
@@ -199,7 +193,7 @@ class HistoryDialog(HemodosDialog):
                 self.history_table.setItem(row, 2, QTableWidgetItem(details))
                 
         except Exception as e:
-            logger.error(f"Errore nel caricamento della cronologia: {str(e)}") 
+            logger.error(f"Errore nel caricamento della cronologia: {str(e)}")
 
     def delete_history(self):
         """Elimina la cronologia dell'anno corrente"""

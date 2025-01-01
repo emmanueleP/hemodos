@@ -104,12 +104,54 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
 
+        # Crea la barra dei menu
+        self.menu_manager.create_menu_bar(self)
+        
         # Inizializza calendario
         self.calendar = self.calendar_manager.init_calendar(self)
-        layout.addWidget(self.calendar)
         
-        # Crea solo la barra dei menu (la status bar è gestita da StatusManager)
-        self.menu_manager.create_menu_bar(self)
+        # Toolbar
+        toolbar = QHBoxLayout()
+        
+        # Pulsante Salva
+        save_btn = QPushButton()
+        save_btn.setIcon(QIcon('assets/diskette.png'))
+        save_btn.setIconSize(QSize(24, 24))
+        save_btn.setToolTip("Salva (Ctrl+S)")
+        save_btn.clicked.connect(self.save_current_day)
+        save_btn.setFixedSize(36, 36)
+        toolbar.addWidget(save_btn)
+        
+        # Pulsante Prossima Donazione
+        next_donation_btn = QPushButton()
+        next_donation_btn.setIcon(QIcon('assets/blood.png'))
+        next_donation_btn.setIconSize(QSize(24, 24))
+        next_donation_btn.setToolTip("Vai alla prossima donazione")
+        next_donation_btn.clicked.connect(self.calendar_manager.go_to_next_donation)
+        next_donation_btn.setFixedSize(36, 36)
+        toolbar.addWidget(next_donation_btn)
+        
+        toolbar.addStretch()
+        
+        # Aggiungi la toolbar al layout principale
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(toolbar)
+        main_layout.addWidget(self.calendar)
+        
+        # Crea un widget centrale e imposta il layout
+        central_widget = QWidget()
+        central_widget.setLayout(main_layout)
+        self.setCentralWidget(central_widget)
+        
+        # Aggiungi shortcut per Ctrl+S
+        save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
+        save_shortcut.activated.connect(self.save_current_day)
+
+    def save_current_day(self):
+        """Salva le prenotazioni del giorno corrente"""
+        dialog = self.findChild(DailyReservationsDialog)
+        if dialog:
+            dialog.save_reservations()
 
     def _setup_connections(self):
         """Configura le connessioni tra segnali e slot"""
@@ -138,10 +180,6 @@ class MainWindow(QMainWindow):
             if add_donation_time(date, time):
                 self.database_manager.load_reservations()
                 self.calendar_manager.highlight_donation_dates()
-
-    def show_history(self):
-        dialog = HistoryDialog(self)
-        dialog.exec_()
 
     def show_info(self):
         dialog = InfoDialog(self)
@@ -230,10 +268,8 @@ class MainWindow(QMainWindow):
                 self.autosave_manager.stop_autosave()
                 event.accept()
             
-            # Reset del flag di sessione alla chiusura
             self.settings.remove("welcome_shown_this_session")
             
-            event.accept()
         except Exception as e:
             logger.error(f"Errore durante la chiusura: {str(e)}")
             event.accept()
@@ -268,3 +304,8 @@ class MainWindow(QMainWindow):
             
         except Exception as e:
             self._handle_error("la ricarica del database", e)
+
+    def show_daily_history(self):
+        """Mostra la finestra della cronologia"""
+        dialog = HistoryDialog(self)
+        dialog.exec_()

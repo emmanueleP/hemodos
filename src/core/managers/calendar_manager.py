@@ -42,7 +42,7 @@ class CalendarManager:
             
             donation_dates = get_donation_dates(current_year)
             if not donation_dates:
-                self.main_window.statusBar.showMessage("Nessuna data di donazione trovata", 3000)
+                self.main_window.status_manager.show_message("Nessuna data di donazione trovata", 3000)
                 return
             
             dates = [QDate.fromString(d, "yyyy-MM-dd") for d in donation_dates if QDate.fromString(d, "yyyy-MM-dd").isValid()]
@@ -57,12 +57,12 @@ class CalendarManager:
             
             if next_date and next_date.isValid():
                 self.main_window.calendar.setSelectedDate(next_date)
-                self.main_window.statusBar.showMessage(
+                self.main_window.status_manager.show_message(
                     f"Prossima donazione: {next_date.toString('dd/MM/yyyy')}", 
                     3000
                 )
             else:
-                self.main_window.statusBar.showMessage(
+                self.main_window.status_manager.show_message(
                     "Nessuna data di donazione successiva trovata", 
                     3000
                 )

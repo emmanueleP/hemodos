@@ -59,7 +59,7 @@ class MenuManager:
         
         # History action
         history_action = QAction(QIcon('assets/history.png'), 'Cronologia', main_window)
-        history_action.triggered.connect(main_window.show_history)
+        history_action.triggered.connect(self.show_history)
         tools_menu.addAction(history_action)
         
         # Delete action
@@ -107,5 +107,11 @@ class MenuManager:
                 "Attenzione",
                 "Apri prima una finestra delle prenotazioni"
             )
+
+    def show_history(self):
+        """Mostra il dialog della cronologia"""
+        from gui.dialogs.history_dialog import HistoryDialog
+        dialog = HistoryDialog(self.main_window)
+        dialog.exec_()
 
     # Rimuovi il metodo create_status_bar() poiché ora è gestito da StatusManager 
