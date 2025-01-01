@@ -4,85 +4,55 @@ from PyQt5.QtWidgets import (QVBoxLayout, QTableWidget, QTableWidgetItem,
 from PyQt5.QtCore import Qt, QDate, QSettings, QSize
 from PyQt5.QtGui import QIcon
 import os
-from core.database import get_history, get_db_path
-from core.delete_db_logic import get_available_years, get_base_path
 import sqlite3
 from datetime import datetime
+from core.database import get_db_path
+from core.delete_db_logic import get_available_years, get_base_path
 from core.logger import logger
 
 class HistoryDialog(HemodosDialog):
     def __init__(self, parent=None):
         super().__init__(parent, "Cronologia Prenotazioni")
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
+        self.setMinimumSize(850, 600)
+        self.resize(850, 600)
         self.init_ui()
 
     def init_ui(self):
         # Layout principale
         layout = QVBoxLayout()
         
-        # Toolbar
-        toolbar = QHBoxLayout()
-        
-        # Pulsante elimina cronologia
-        delete_btn = QPushButton()
-        delete_btn.setIcon(QIcon('assets/trash.png'))
-        delete_btn.setIconSize(QSize(24, 24))
-        delete_btn.setToolTip("Elimina cronologia dell'anno")
-        delete_btn.clicked.connect(self.delete_history)
-        delete_btn.setFixedSize(36, 36)
-        toolbar.addWidget(delete_btn)
-        
-        toolbar.addStretch()
-        layout.addLayout(toolbar)
-        
         # Header con selezione anno
         header_layout = QHBoxLayout()
         
         # Selezione anno
-        year_group = QHBoxLayout()
         year_label = QLabel("Anno:")
-        year_label.setStyleSheet("color: #ffffff;")  # Testo bianco per tema scuro
-        year_group.addWidget(year_label)
+        header_layout.addWidget(year_label)
         
         self.year_combo = QComboBox()
-        self.year_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #2d2d2d;
-                color: #ffffff;
-                border: 1px solid #404040;
-                padding: 5px;
-                border-radius: 3px;
-                min-width: 100px;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 20px;
-            }
-            QComboBox::down-arrow {
-                image: url(assets/arrow_down.png);
-                width: 12px;
-                height: 12px;
-            }
-            QComboBox:hover {
-                border-color: #006666;
-            }
-        """)
-        
-        # Carica gli anni disponibili
         available_years = get_available_years()
         if available_years:
-            for year in available_years:
+            for year in sorted(available_years, reverse=True):
                 self.year_combo.addItem(str(year))
         else:
             current_year = datetime.now().year
             self.year_combo.addItem(str(current_year))
             
         self.year_combo.currentTextChanged.connect(self.load_history)
-        year_group.addWidget(self.year_combo)
-        header_layout.addLayout(year_group)
+        header_layout.addWidget(self.year_combo)
         
         header_layout.addStretch()
-        layout.addLayout(header_layout)
+        
+        # Pulsante elimina
+        delete_btn = QPushButton()
+        delete_btn.setIcon(QIcon('assets/trash.png'))
+        delete_btn.setIconSize(QSize(24, 24))
+        delete_btn.setToolTip("Elimina cronologia dell'anno")
+        delete_btn.clicked.connect(self.delete_history)
+        delete_btn.setFixedSize(36, 36)
+        header_layout.addWidget(delete_btn)
+        
+        self.content_layout.addLayout(header_layout)
         
         # Tabella cronologia
         self.history_table = QTableWidget()
@@ -93,30 +63,31 @@ class HistoryDialog(HemodosDialog):
         self.history_table.setColumnWidth(2, 450)
         self.history_table.setAlternatingRowColors(True)
         
-        # Stile per la tabella
-        self.history_table.setStyleSheet("""
-            QTableWidget {
-                background-color: #1a1a1a;
-                color: #ffffff;
-                gridline-color: #404040;
-                border: 1px solid #404040;
-            }
-            QTableWidget::item {
-                padding: 5px;
-            }
-            QTableWidget::item:selected {
-                background-color: #004d4d;
-            }
-            QHeaderView::section {
-                background-color: #2d2d2d;
-                color: #ffffff;
-                padding: 5px;
-                border: 1px solid #404040;
-            }
-            QTableWidget::item:alternate {
-                background-color: #262626;
-            }
-        """)
+        # Applica il tema alla tabella
+        if self.parent().theme_manager.get_current_theme().name == "dark":
+            self.history_table.setStyleSheet("""
+                QTableWidget {
+                    background-color: #2b2b2b;
+                    color: #ffffff;
+                    gridline-color: #404040;
+                    border: 1px solid #404040;
+                }
+                QTableWidget::item {
+                    padding: 5px;
+                }
+                QTableWidget::item:selected {
+                    background-color: #004d4d;
+                }
+                QHeaderView::section {
+                    background-color: #2d2d2d;
+                    color: #ffffff;
+                    padding: 5px;
+                    border: 1px solid #404040;
+                }
+                QTableWidget::item:alternate {
+                    background-color: #353535;
+                }
+            """)
         
         self.content_layout.addWidget(self.history_table)
         

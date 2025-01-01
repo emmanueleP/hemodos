@@ -6,6 +6,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from core.logger import logger
 import time
+from core.delete_db_logic import get_base_path
 
 def get_db_path(specific_date=None, is_donation_dates=False):
     """Ottiene il percorso del database corretto
@@ -668,4 +669,33 @@ def archive_old_data(year):
             
     except Exception as e:
         logger.error(f"Errore nell'archiviazione dell'anno {year}: {str(e)}")
+        return False
+
+def add_to_history(year, action, details):
+    """Aggiunge un'azione alla cronologia"""
+    try:
+        base_path = get_base_path()
+        history_db_path = os.path.join(base_path, str(year), f"cronologia_{year}.db")
+        
+        # Crea la directory se non esiste
+        os.makedirs(os.path.dirname(history_db_path), exist_ok=True)
+        
+        conn = sqlite3.connect(history_db_path)
+        c = conn.cursor()
+        
+        # Crea la tabella se non esiste
+        c.execute('''CREATE TABLE IF NOT EXISTS history
+                    (timestamp text, action text, details text)''')
+        
+        # Inserisci il record
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("INSERT INTO history VALUES (?, ?, ?)", 
+                 (timestamp, action, details))
+        
+        conn.commit()
+        conn.close()
+        
+        return True
+    except Exception as e:
+        logger.error(f"Errore nell'aggiunta alla cronologia: {str(e)}")
         return False

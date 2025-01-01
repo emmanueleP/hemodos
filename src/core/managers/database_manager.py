@@ -5,7 +5,7 @@ from datetime import datetime
 from core.logger import logger
 from core.database import (
     init_db, get_db_path, add_reservation, 
-    save_donation_status, delete_reservation_from_db
+    save_donation_status, delete_reservation_from_db, add_to_history
 )
 import glob
 import sqlite3
@@ -148,7 +148,7 @@ class DatabaseManager(QObject):
             logger.error(f"Errore nell'aggiornamento delle info del database: {str(e)}")
             self.main_window.status_manager.set_db_error()
 
-    def save_reservations(self, table, date, show_message=True):
+    def save_reservations(self, table, date, show_dialog=True):
         """Salva lo stato corrente delle prenotazioni"""
         try:
             # Salva ogni riga della tabella
@@ -166,13 +166,21 @@ class DatabaseManager(QObject):
             # Controlla la dimensione del database e fai vacuum se necessario
             self._check_and_vacuum(date)
             
-            if show_message:
+            if show_dialog:
                 self.main_window.status_manager.show_message("Salvataggio completato", 3000)
+            
+            # Aggiungi alla cronologia
+            year = QDate.fromString(date, "yyyy-MM-dd").year()
+            add_to_history(
+                year,
+                "Salvataggio prenotazioni",
+                f"Salvate prenotazioni per la data {date}"
+            )
             
             return True
             
         except Exception as e:
-            return self.main_window._handle_error("il salvataggio", e, show_message)
+            return self.main_window._handle_error("il salvataggio", e, show_dialog)
 
     def _check_and_vacuum(self, date):
         """Controlla la dimensione del database e esegue VACUUM se necessario"""

@@ -305,7 +305,8 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self._handle_error("la ricarica del database", e)
 
-    def show_daily_history(self):
+    def show_history(self):
         """Mostra la finestra della cronologia"""
+        from gui.dialogs.history_dialog import HistoryDialog
         dialog = HistoryDialog(self)
         dialog.exec_()
