@@ -65,12 +65,10 @@ class MainWindow(QMainWindow):
         else:
             # Per gli avvii successivi, controlla se mostrare il bentornato
             show_welcome = self.settings.value("show_welcome", True, type=bool)
-            session_shown = self.settings.value("welcome_shown_this_session", False, type=bool)
             
-            if show_welcome and not session_shown:
+            if show_welcome:
                 welcome = WelcomeDialog(self, is_first_run=False)
                 welcome.exec_()
-                self.settings.setValue("welcome_shown_this_session", True)
 
         # Continua con l'inizializzazione normale
         self.setWindowTitle(self.WINDOW_TITLE)

@@ -41,7 +41,7 @@ class Config:
                 "cloud": {"service": "Locale", "sync_interval": 30}
             },
             "ui": {
-                "theme": "light",
+                "theme": "dark",
                 "primary_color": "#004d4d",
                 "font": "SF Pro Display",
                 "window": {

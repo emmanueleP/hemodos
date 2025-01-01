@@ -126,13 +126,6 @@ class WelcomeDialog(HemodosDialog):
         settings_dialog = SettingsDialog(self)
         settings_dialog.exec_()
 
-    def close(self):
-        """Chiude il dialog e salva le preferenze"""
-        if not self.is_first_run and hasattr(self, 'show_again_cb'):
-            if self.show_again_cb.isChecked():
-                self.settings.setValue("show_welcome", False)
-        self.accept()
-
     def accept(self):
         """Salva la preferenza e chiude"""
         if not self.is_first_run and hasattr(self, 'show_again_cb'):

@@ -166,6 +166,11 @@ class DatabaseManager(QObject):
             # Controlla la dimensione del database e fai vacuum se necessario
             self._check_and_vacuum(date)
             
+            # Aggiorna l'ultimo salvataggio nella status bar
+            current_time = datetime.now().strftime("%H:%M:%S")
+            self.main_window.settings.setValue("last_save_time", current_time)
+            self.main_window.status_manager.update_last_save_info()
+            
             if show_dialog:
                 self.main_window.status_manager.show_message("Salvataggio completato", 3000)
             
