@@ -578,7 +578,8 @@ class SettingsDialog(HemodosDialog):
                 
                 # Aggiorna il calendario principale se esiste
                 if hasattr(self, 'parent') and self.parent:
-                    self.parent.highlight_donation_dates()
+                    if hasattr(self.parent, 'calendar_manager'):
+                        self.parent.calendar_manager.highlight_donation_dates()
                 
                 QMessageBox.information(
                     self,
