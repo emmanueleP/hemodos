@@ -50,7 +50,7 @@ def export_to_docx(date, data, file_path, logo_path=None):
         # Data
         date_paragraph = doc.add_paragraph()
         date_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        date_run = date_paragraph.add_run(f"Data: {datetime.now().strftime('%d/%m/%Y')}")
+        date_run = date_paragraph.add_run(f"Data: {date}")
         date_run.font.size = Pt(12)
         date_run.font.bold = True
         
@@ -149,7 +149,7 @@ def print_data(printer, date, data, file_path, logo_path=None):
         # Data
         date_paragraph = doc.add_paragraph()
         date_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        date_run = date_paragraph.add_run(f"Data: {datetime.now().strftime('%d/%m/%Y')}")
+        date_run = date_paragraph.add_run(f"Data: {date}")
         date_run.font.size = Pt(12)
         date_run.font.bold = True
         
