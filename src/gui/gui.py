@@ -19,6 +19,7 @@ from core.managers.theme_manager import ThemeManager
 from core.managers.export_manager import ExportManager
 from core.managers.calendar_manager import CalendarManager
 from core.managers.status_manager import StatusManager
+from core.managers.print_manager import PrintManager
 
 # Importazioni utils
 from core.utils import print_data
@@ -95,6 +96,7 @@ class MainWindow(QMainWindow):
         self.calendar_manager = CalendarManager(self)
         self.year_manager = YearManager()
         self.status_manager = StatusManager(self)
+        self.print_manager = PrintManager(self)
 
     def _init_ui_components(self):
         """Inizializza i componenti dell'interfaccia utente"""

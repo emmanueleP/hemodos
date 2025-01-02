@@ -105,30 +105,7 @@ class DailyReservationsDialog(QDialog):
 
     def print_reservations(self):
         """Stampa le prenotazioni"""
-        try:
-            printer = QPrinter(QPrinter.HighResolution)
-            printer.setPageSize(QPrinter.A4)
-            
-            dialog = QPrintDialog(printer, self)
-            if dialog.exec_() == QPrintDialog.Accepted:
-                date = self.selected_date.toString("yyyy-MM-dd")
-                temp_file = os.path.join(os.path.expanduser("~"), "temp_print.docx")
-                
-                data = self._collect_table_data()
-                if data:  # Stampa solo se ci sono dati
-                    print_data(printer, date, data, temp_file)
-                    self.show_status_message("Stampa completata", 3000)
-                else:
-                    self.show_status_message("Nessun dato da stampare", 3000)
-                
-                # Pulisci il file temporaneo
-                try:
-                    os.remove(temp_file)
-                except:
-                    pass
-                    
-        except Exception as e:
-            self.show_status_message(f"Errore durante la stampa: {str(e)}", 3000)
+        self.main_window.print_manager.print_reservations(self)
 
     def _collect_table_data(self):
         """Raccoglie i dati dalla tabella"""

@@ -107,7 +107,7 @@ def export_to_docx(date, data, file_path, logo_path=None):
         return False
 
 def print_data(printer, date, data, file_path, logo_path=None):
-    """Stampa i dati usando il formato docx"""
+    """Crea il documento Word per la stampa"""
     try:
         doc = Document()
         
@@ -196,7 +196,11 @@ def print_data(printer, date, data, file_path, logo_path=None):
         footer_run = footer.add_run(f'Creato da Hemodos il {datetime.now().strftime("%d/%m/%Y alle %H:%M:%S")}')
         footer_run.font.size = Pt(8)
         footer_run.font.color.rgb = RGBColor(128, 128, 128)  # Grigio
-    
+        
+        # Salva il documento
+        doc.save(file_path)
+        return True
+        
     except Exception as e:
-        logger.error(f"Errore nella stampa: {str(e)}")
+        logger.error(f"Errore nella creazione del documento: {str(e)}")
         return False
