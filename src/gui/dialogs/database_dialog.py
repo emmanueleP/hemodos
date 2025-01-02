@@ -77,14 +77,19 @@ class FirstRunDialog(HemodosDialog):
         self.button_group.addButton(existing_local_radio, 2)
         options_layout.addWidget(existing_local_radio)
 
-        # Opzione 3: OneDrive
-        onedrive_radio = QRadioButton("Usa OneDrive")
-        self.button_group.addButton(onedrive_radio, 3)
+        # Opzione 3: Database esistente su cloud
+        existing_cloud_radio = QRadioButton("Apri database esistente su cloud")
+        self.button_group.addButton(existing_cloud_radio, 3)
+        options_layout.addWidget(existing_cloud_radio)
+
+        # Opzione 4: OneDrive
+        onedrive_radio = QRadioButton("Crea nuovo database su OneDrive")
+        self.button_group.addButton(onedrive_radio, 4)
         options_layout.addWidget(onedrive_radio)
 
-        # Opzione 4: Google Drive
-        gdrive_radio = QRadioButton("Usa Google Drive")
-        self.button_group.addButton(gdrive_radio, 4)
+        # Opzione 5: Google Drive
+        gdrive_radio = QRadioButton("Crea nuovo database su Google Drive")
+        self.button_group.addButton(gdrive_radio, 5)
         options_layout.addWidget(gdrive_radio)
 
         options_group.setLayout(options_layout)
@@ -154,24 +159,55 @@ class FirstRunDialog(HemodosDialog):
                     QMessageBox.warning(self, "Errore", "Seleziona una cartella anno valida")
                     return
                 
-            elif self.selected_option == 3:  # OneDrive
+            elif self.selected_option == 3:  # Database esistente su cloud
+                # Chiedi quale servizio cloud
+                cloud_service = QMessageBox.question(
+                    self,
+                    "Seleziona Servizio Cloud",
+                    "Quale servizio cloud vuoi utilizzare?",
+                    "OneDrive|Google Drive",
+                    defaultButtonNumber=0
+                )
+                
+                cloud_path = None
+                if cloud_service == 0:  # OneDrive
+                    cloud_path = self._get_onedrive_path()
+                    self.settings.setValue("cloud_service", "OneDrive")
+                else:  # Google Drive
+                    cloud_path = self._get_gdrive_path()
+                    self.settings.setValue("cloud_service", "GoogleDrive")
+                
+                if not cloud_path:
+                    QMessageBox.warning(self, "Errore", "Cartella cloud non trovata")
+                    return
+                
+                # Seleziona la cartella Hemodos esistente
+                hemodos_path = QFileDialog.getExistingDirectory(
+                    self, 
+                    "Seleziona la cartella Hemodos",
+                    os.path.join(cloud_path, "Hemodos")
+                )
+                if hemodos_path:
+                    self.settings.setValue("cloud_path", cloud_path)
+                else:
+                    return
+
+            elif self.selected_option == 4:  # Nuovo database OneDrive
                 onedrive_path = self._get_onedrive_path()
                 if not onedrive_path:
                     QMessageBox.warning(self, "Errore", "Cartella OneDrive non trovata")
                     return
-                # Crea la directory dell'anno corrente in Hemodos
                 base_path = os.path.join(onedrive_path, "Hemodos")
                 year_path = os.path.join(base_path, str(QDate.currentDate().year()))
                 os.makedirs(year_path, exist_ok=True)
                 self.settings.setValue("cloud_service", "OneDrive")
                 self.settings.setValue("cloud_path", onedrive_path)
-                
-            elif self.selected_option == 4:  # Google Drive
+
+            elif self.selected_option == 5:  # Nuovo database Google Drive
                 gdrive_path = self._get_gdrive_path()
                 if not gdrive_path:
                     QMessageBox.warning(self, "Errore", "Cartella Google Drive non trovata")
                     return
-                # Crea la directory dell'anno corrente in Hemodos
                 base_path = os.path.join(gdrive_path, "Hemodos")
                 year_path = os.path.join(base_path, str(QDate.currentDate().year()))
                 os.makedirs(year_path, exist_ok=True)
