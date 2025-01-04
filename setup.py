@@ -8,9 +8,9 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="hemodos",
-    version="1.0.0",
+    version="1.0.3",
     author="Emmanuele Pani",
-    author_email="your.email@example.com",
+    author_email="150518833+emmanueleP@users.noreply.github.com", #GitHub email
     description="Software per la Gestione delle Donazioni di Sangue",
     long_description=long_description,
     long_description_content_type="text/markdown",

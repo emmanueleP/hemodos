@@ -6,6 +6,14 @@
 
 🇬🇧 Hemodos is a desktop application developed by [Emmanuele Pani](https://github.com/emmanueleP) for managing and organizing blood donation appointments.
 
+## 📥 Download
+
+🇮🇹 Scarica l'ultima versione:
+- [Hemodos v1.0.3](https://github.com/emmanueleP/hemodos/releases/tag/v1.0.3) (Windows)
+
+🇬🇧 Download the latest version:
+- [Hemodos v1.0.3](https://github.com/emmanueleP/hemodos/releases/tag/v1.0.3) (Windows)
+
 ## ✨ Caratteristiche Principali | Main Features
 
 🇮🇹
