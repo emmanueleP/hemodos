@@ -1,7 +1,10 @@
 from gui.gui import MainWindow
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QFileDialog, QMessageBox, QProgressDialog
 from PyQt5.QtGui import QFont, QIcon
-from gui.dialogs.database_dialog import FirstRunDialog
+from core.themes import THEMES
+from gui.dialogs.first_run_dialog import FirstRunDialog
+from gui.dialogs.welcome_dialog import WelcomeDialog
+from gui.dialogs.database_dialog import ConfigDatabaseDialog
 from PyQt5.QtCore import QSettings, Qt
 import os
 import json
@@ -43,9 +46,9 @@ def load_config():
                 "cloud": {"service": "Locale", "sync_interval": 30}
             },
             "ui": {
-                "theme": "light",
+                "theme": "dark",
                 "primary_color": "#004d4d",
-                "font": "SF Pro Display",
+                "font": "Arial",
                 "window": {
                     "width": 1024,
                     "height": 768,
@@ -111,39 +114,29 @@ def main():
     
     first_run = settings.value("first_run", True, type=bool)
 
+    # Si occupa del primo avvio
     if first_run:
+        # Imposta il tema scuro come predefinito, si può cambiare in qualsiasi momento
+        settings.setValue("theme", "dark")
         dialog = FirstRunDialog()
-        if dialog.exec_() == QDialog.Accepted:
-            option = dialog.selected_option
-            if option == 1:  # Nuovo database locale
-                settings.setValue("cloud_service", "Locale")
-            elif option == 2:  # Database locale esistente
-                file_path, _ = QFileDialog.getOpenFileName(
-                    None,
-                    "Apri Database",
-                    os.path.expanduser("~/Documents/Hemodos"),
-                    "Database SQLite (*.db)"
-                )
-                if file_path:
-                    settings.setValue("last_database", file_path)
-                    settings.setValue("cloud_service", "Locale")
-            elif option == 3:  # OneDrive
-                settings.setValue("cloud_service", "OneDrive")
-            elif option == 4:  # Google Drive
-                settings.setValue("cloud_service", "Google Drive")
-            
-            settings.setValue("first_run", False)
-        else:
+        dialog.first_run = True
+        if dialog.exec_() == QDialog.Rejected:
             sys.exit()
+        settings.setValue("first_run", False)
 
     # Load config
     config = load_config()
 
-    # Mostra il dialogo di benvenuto al primo avvio
-    if settings.value("show_welcome", True, type=bool):
+    # Mostra il dialogo di benvenuto agli avvii successivi al primo
+    if settings.value("first_run", True, type=bool):
+        # mostra firstrundialog perché primo avvio (gestito sopra)
+        pass
+    else:
+        # Non è il primo avvio, mostra il dialogo di benvenuto standard
         from gui.dialogs.welcome_dialog import WelcomeDialog
         welcome = WelcomeDialog()
-        welcome.exec_()
+        if welcome.exec_() == QDialog.Rejected:
+           sys.exit()
     
     # Avvia l'applicazione principale
     window = MainWindow(config)

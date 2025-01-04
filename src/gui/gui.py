@@ -27,7 +27,7 @@ from core.utils import print_data
 # Importazioni dialogs
 from gui.dialogs.history_dialog import HistoryDialog
 from gui.dialogs.info_dialog import InfoDialog
-from gui.dialogs.database_dialog import FirstRunDialog
+from gui.dialogs.database_dialog import ConfigDatabaseDialog
 from gui.dialogs.delete_dialog import DeleteFilesDialog
 from gui.dialogs.time_entry_dialog import TimeEntryDialog
 from gui.dialogs.statistics_dialog import StatisticsDialog
@@ -35,7 +35,7 @@ from gui.dialogs.manual_dialog import ManualDialog
 from config.settings import SettingsDialog
 from gui.dialogs.daily_reservations_dialog import DailyReservationsDialog
 from gui.dialogs.welcome_dialog import WelcomeDialog
-
+from gui.dialogs.first_run_dialog import FirstRunDialog
 # Importazioni widgets
 from gui.widgets.reservations_widget import ReservationsWidget
 
@@ -54,23 +54,8 @@ class MainWindow(QMainWindow):
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
 
         # Controlla se è il primo avvio
-        first_run = not self.settings.value("first_run_completed", False, type=bool)
+        first_run = self.settings.value("first_run", True, type=bool)
         
-        if first_run:
-            # Mostra il dialog di benvenuto per il primo avvio
-            welcome = WelcomeDialog(self, is_first_run=True)
-            if welcome.exec_() == QDialog.Rejected:
-                sys.exit()
-            self.settings.setValue("first_run_completed", True)
-            self.settings.setValue("show_welcome", False)  # Disabilita il bentornato dopo il primo avvio
-        else:
-            # Per gli avvii successivi, controlla se mostrare il bentornato
-            show_welcome = self.settings.value("show_welcome", True, type=bool)
-            
-            if show_welcome:
-                welcome = WelcomeDialog(self, is_first_run=False)
-                welcome.exec_()
-
         # Continua con l'inizializzazione normale
         self.setWindowTitle(self.WINDOW_TITLE)
         self.resize(*self.DEFAULT_WINDOW_SIZE)
@@ -212,8 +197,8 @@ class MainWindow(QMainWindow):
 
     def show_database_dialog(self):
         """Mostra il dialog per la gestione del database"""
-        from gui.dialogs.database_dialog import FirstRunDialog
-        dialog = FirstRunDialog(self)
+        from gui.dialogs.database_dialog import ConfigDatabaseDialog
+        dialog = ConfigDatabaseDialog(self)
         if dialog.exec_() == QDialog.Accepted:
             # Ricarica il database dopo il cambio di configurazione
             self.database_manager.load_current_day()

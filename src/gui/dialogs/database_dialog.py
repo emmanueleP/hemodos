@@ -8,9 +8,10 @@ import os
 from core.database import get_db_path
 from core.delete_db_logic import get_base_path
 from core.logger import logger
+from core.themes import THEMES
 import sqlite3
 
-class FirstRunDialog(HemodosDialog):
+class ConfigDatabaseDialog(HemodosDialog):
     def __init__(self, parent=None):
         super().__init__(parent, "Gestione database Hemodos")
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
@@ -113,9 +114,8 @@ class FirstRunDialog(HemodosDialog):
         self.content_layout.addWidget(main_container)
 
         # Modifica i pulsanti
-        self.buttons_layout.itemAt(1).widget().setText("Avanti")  # Cambia "OK" in "Avanti"
-        self.buttons_layout.itemAt(2).widget().setText("Esci")    # Cambia "Annulla" in "Esci"
-
+        self.buttons_layout.itemAt(1).widget().setText("Avanti")  
+        self.buttons_layout.itemAt(2).widget().setText("Esci")    
         # Collega il pulsante Avanti alla verifica
         ok_button = self.buttons_layout.itemAt(1).widget()
         ok_button.clicked.disconnect()  # Disconnetti il vecchio segnale

@@ -1,29 +1,37 @@
 from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QPushButton, 
-                            QHBoxLayout, QCheckBox, QDialog)
+                            QHBoxLayout, QCheckBox, QDialog, QApplication)
 from PyQt5.QtCore import Qt, QSettings
 from PyQt5.QtGui import QPixmap, QFont, QIcon
-from gui.dialogs.database_dialog import FirstRunDialog
+from gui.dialogs.database_dialog import ConfigDatabaseDialog
+import sys
+
 
 class WelcomeDialog(HemodosDialog):
-    def __init__(self, parent=None, is_first_run=False):
-        super().__init__(parent, "Benvenuto in Hemodos" if is_first_run else "Bentornato in Hemodos")
+    def __init__(self, parent=None):
+        super().__init__(parent, "Bentornato in Hemodos")
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
-        self.is_first_run = is_first_run
+        #Rimuovi ok e annulla da HemodosDialog
+        for i in reversed(range(self.buttons_layout.count())):
+            widget = self.buttons_layout.itemAt(i).widget()
+            if isinstance(widget, QPushButton):
+                widget.setParent(None)
+                widget.deleteLater()
+        
         self.init_ui()
-
+      
     def init_ui(self):
         # Logo
         logo_layout = QHBoxLayout()
         logo_label = QLabel()
         logo_pixmap = QPixmap('assets/logo_info.png')
-        logo_label.setPixmap(logo_pixmap.scaled(500, 500, Qt.KeepAspectRatio))
+        logo_label.setPixmap(logo_pixmap.scaled(100, 100, Qt.KeepAspectRatio))
         logo_layout.addWidget(logo_label, alignment=Qt.AlignCenter)
         self.content_layout.addLayout(logo_layout)
         
         # Titolo
-        title = QLabel("Benvenuto in Hemodos" if self.is_first_run else "Bentornato in Hemodos")
-        title.setFont(QFont('Arial', 36, QFont.Bold))
+        title = QLabel("Bentornato in Hemodos")
+        title.setFont(QFont('Arial', 30, QFont.Bold))
         title.setStyleSheet("color: #004d4d;")
         title.setAlignment(Qt.AlignCenter)
         self.content_layout.addWidget(title)
@@ -31,34 +39,21 @@ class WelcomeDialog(HemodosDialog):
         # Messaggio
         welcome_text = QLabel()
         welcome_text.setFont(QFont('Arial', 14))
-        welcome_text.setStyleSheet("color: #ffffff;")
+        welcome_text.setStyleSheet("color: white;")
         
-        if self.is_first_run:
-            welcome_text.setText(
-                "Benvenuto in Hemodos!\n\n"
-                "Per iniziare, dovrai configurare:\n"
-                "• Il tipo di database (locale o cloud)\n"
-                "• La struttura per l'anno corrente\n"
-                "• Le date di donazione\n\n"
-                "Clicca su 'Configura' per procedere."
-            )
-        else:
-            welcome_text.setText(
+        
+        welcome_text.setText(
                 "Bentornato in Hemodos!\n\n"
-                "Il tuo database è pronto all'uso.\n"
+                "Clicca su 'Apri database' per aprire il database:\n"
                 "Puoi modificare le impostazioni in qualsiasi momento\n"
-                "dal menu Impostazioni."
+                "dal menu Impostazioni.\n"
+                "Clicca su 'Esci' per uscire."
             )
         
         welcome_text.setWordWrap(True)
-        welcome_text.setAlignment(Qt.AlignLeft)
+        welcome_text.setAlignment(Qt.AlignCenter)
         self.content_layout.addWidget(welcome_text)
         
-        # Checkbox "Non mostrare più" (solo per bentornato)
-        if not self.is_first_run:
-            self.show_again_cb = QCheckBox("Non mostrare più questo messaggio")
-            self.show_again_cb.setStyleSheet("color: #ffffff;")
-            self.content_layout.addWidget(self.show_again_cb)
 
         # Copyright
         copyright_label = QLabel("© 2025 Emmanuele Pani. Under MIT License.")
@@ -77,7 +72,7 @@ class WelcomeDialog(HemodosDialog):
         
         # Pulsante manuale (aggiunto a sinistra)
         manual_btn = QPushButton()
-        manual_btn.setIcon(QIcon('assets/user_guide.png'))  # Assicurati di avere questa icona
+        manual_btn.setIcon(QIcon('assets/user_guide_64px.png')) #icona 64 px
         manual_btn.setToolTip("Apri Manuale")
         manual_btn.setStyleSheet("""
             QPushButton {
@@ -95,43 +90,47 @@ class WelcomeDialog(HemodosDialog):
         
         buttons_layout.addStretch()  # Spazio flessibile tra i pulsanti
         
-        if self.is_first_run:
-            config_btn = QPushButton("Configura")
-            config_btn.setStyleSheet(self.button_style)
-            config_btn.clicked.connect(self.show_database_dialog)
-            buttons_layout.addWidget(config_btn)
-        else:
-            settings_btn = QPushButton("Apri Impostazioni")
-            settings_btn.setStyleSheet(self.button_style)
-            settings_btn.clicked.connect(self.open_settings)
-            
-            start_btn = QPushButton("Inizia")
-            start_btn.setStyleSheet(self.button_style)
-            start_btn.clicked.connect(self.close)
-            
-            buttons_layout.addWidget(settings_btn)
-            buttons_layout.addWidget(start_btn)
+        open_button = QPushButton("Apri database")
+        open_button.setIcon(QIcon('assets/database_64px.png')) #icona 64 px
+        open_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2d2d2d;
+                border: none;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #00a3a3;
+                border-radius: 3px;
+            }
+        """)
+        open_button.clicked.connect(self.open_button)
+        buttons_layout.addWidget(open_button)
+
+        exit_button = QPushButton("Esci")
+        exit_button.setIcon(QIcon('assets/exit_64px.png')) #icona 64 px
+        exit_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2d2d2d;
+                border: none;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #00a3a3;
+                border-radius: 3px;
+            }
+        """)
+        exit_button.clicked.connect(self.exit_button)
+        buttons_layout.addWidget(exit_button)
         
         self.content_layout.addLayout(buttons_layout)
 
-    def show_database_dialog(self):
-        """Mostra il dialog di configurazione database"""
-        dialog = FirstRunDialog(self)
-        if dialog.exec_() == QDialog.Accepted:
-            self.accept()
+    def open_button(self):
+        """Apre l'applicazione"""
+        self.done(QDialog.Accepted) #Chiude il dialog definitivamente
 
-    def open_settings(self):
-        """Apre la finestra delle impostazioni"""
-        from config.settings import SettingsDialog
-        settings_dialog = SettingsDialog(self)
-        settings_dialog.exec_()
-
-    def accept(self):
-        """Salva la preferenza e chiude"""
-        if not self.is_first_run and hasattr(self, 'show_again_cb'):
-            if self.show_again_cb.isChecked():
-                self.settings.setValue("show_welcome", False)
-        super().accept()
+    def exit_button(self):
+        """Chiude l'applicazione completamente"""
+        QApplication.quit()
 
     def show_manual(self):
         """Apre la finestra del manuale"""

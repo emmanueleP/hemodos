@@ -27,7 +27,7 @@ ENV/
 .venv/
 env/
 
-# IDE
+# Dev tools
 .idea/
 .vscode/
 *.swp
@@ -35,6 +35,7 @@ env/
 .vs/
 *.sublime-workspace
 *.sublime-project
+dev.py
 
 # Project specific
 build.sh
@@ -87,10 +88,6 @@ coverage.xml
 .tox/
 nosetests.xml
 coverage.xml
-
-# Translations
-*.mo
-*.pot
 
 # Database
 *.sqlite

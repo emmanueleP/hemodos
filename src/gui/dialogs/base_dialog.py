@@ -56,7 +56,7 @@ class HemodosDialog(QDialog):
     def apply_theme(self):
         """Applica il tema corrente al dialogo"""
         settings = QSettings('Hemodos', 'DatabaseSettings')
-        theme_id = settings.value("theme", "light")
+        theme_id = settings.value("theme", "dark")
         
         # Gestisci la migrazione dal vecchio al nuovo sistema di temi
         if theme_id == "Scuro":
