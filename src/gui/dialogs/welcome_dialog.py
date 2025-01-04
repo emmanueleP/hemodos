@@ -24,30 +24,31 @@ class WelcomeDialog(HemodosDialog):
         # Logo
         logo_layout = QHBoxLayout()
         logo_label = QLabel()
-        logo_pixmap = QPixmap('assets/logo_info.png')
-        logo_label.setPixmap(logo_pixmap.scaled(100, 100, Qt.KeepAspectRatio))
+        logo_pixmap = QPixmap('src/assets/logo_info.png')
+        if logo_pixmap.isNull():
+            print("Errore: Impossibile caricare il logo da:", 'src/assets/logo_info.png')
+        else:
+            logo_label.setPixmap(logo_pixmap.scaled(300, 300, Qt.KeepAspectRatio))
         logo_layout.addWidget(logo_label, alignment=Qt.AlignCenter)
         self.content_layout.addLayout(logo_layout)
         
         # Titolo
         title = QLabel("Bentornato in Hemodos")
-        title.setFont(QFont('Arial', 30, QFont.Bold))
+        title.setFont(QFont('Arial', 26, QFont.Bold))
         title.setStyleSheet("color: #004d4d;")
         title.setAlignment(Qt.AlignCenter)
         self.content_layout.addWidget(title)
         
         # Messaggio
         welcome_text = QLabel()
-        welcome_text.setFont(QFont('Arial', 14))
-        welcome_text.setStyleSheet("color: white;")
-        
-        
+        welcome_text.setFont(QFont('Arial', 13))       
         welcome_text.setText(
                 "Bentornato in Hemodos!\n\n"
-                "Clicca su 'Apri database' per aprire il database:\n"
-                "Puoi modificare le impostazioni in qualsiasi momento\n"
+                "Clicca su 'Apri database' per aprire il database o clicca su 'Esci' per uscire.\n"
+                "Puoi aprire il manuale cliccando sull'icona qui sotto.\n"
+                "Puoi modificare le impostazioni del database in qualsiasi momento\n"
                 "dal menu Impostazioni.\n"
-                "Clicca su 'Esci' per uscire."
+                
             )
         
         welcome_text.setWordWrap(True)
@@ -72,7 +73,7 @@ class WelcomeDialog(HemodosDialog):
         
         # Pulsante manuale (aggiunto a sinistra)
         manual_btn = QPushButton()
-        manual_btn.setIcon(QIcon('assets/user_guide_64px.png')) #icona 64 px
+        manual_btn.setIcon(QIcon('src/assets/user_guide_64px.png')) #icona 64 px
         manual_btn.setToolTip("Apri Manuale")
         manual_btn.setStyleSheet("""
             QPushButton {
@@ -91,7 +92,7 @@ class WelcomeDialog(HemodosDialog):
         buttons_layout.addStretch()  # Spazio flessibile tra i pulsanti
         
         open_button = QPushButton("Apri database")
-        open_button.setIcon(QIcon('assets/database_64px.png')) #icona 64 px
+        open_button.setIcon(QIcon('src/assets/database_64px.png')) #icona 64 px
         open_button.setStyleSheet("""
             QPushButton {
                 background-color: #2d2d2d;
@@ -107,7 +108,7 @@ class WelcomeDialog(HemodosDialog):
         buttons_layout.addWidget(open_button)
 
         exit_button = QPushButton("Esci")
-        exit_button.setIcon(QIcon('assets/exit_64px.png')) #icona 64 px
+        exit_button.setIcon(QIcon('src/assets/exit_64px.png')) #icona 64 px
         exit_button.setStyleSheet("""
             QPushButton {
                 background-color: #2d2d2d;

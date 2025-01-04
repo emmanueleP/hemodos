@@ -45,7 +45,7 @@ class HistoryDialog(HemodosDialog):
         
         # Pulsante elimina
         delete_btn = QPushButton()
-        delete_btn.setIcon(QIcon('assets/trash.png'))
+        delete_btn.setIcon(QIcon('src/assets/trash.png'))
         delete_btn.setIconSize(QSize(24, 24))
         delete_btn.setToolTip("Elimina cronologia dell'anno")
         delete_btn.clicked.connect(self.delete_history)

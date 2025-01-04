@@ -37,7 +37,7 @@ class ConfigDatabaseDialog(HemodosDialog):
         if not os.path.exists(logo_path):
             logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo_info.png")
         if not os.path.exists(logo_path):
-            logo_path = "assets/logo_info.png"
+            logo_path = "src/assets/logo_info.png"
 
         if os.path.exists(logo_path):
             pixmap = QPixmap(logo_path)

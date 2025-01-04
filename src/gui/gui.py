@@ -100,16 +100,16 @@ class MainWindow(QMainWindow):
         
         # Pulsante Salva
         save_btn = QPushButton()
-        save_btn.setIcon(QIcon('assets/diskette.png'))
+        save_btn.setIcon(QIcon('src/assets/diskette.png'))
         save_btn.setIconSize(QSize(24, 24))
-        save_btn.setToolTip("Salva (Ctrl+S)")
-        save_btn.clicked.connect(self.save_current_day)
+        save_btn.setToolTip("Salva tutto (Ctrl+S)")
+        save_btn.clicked.connect(self.save_current)
         save_btn.setFixedSize(36, 36)
         toolbar.addWidget(save_btn)
         
         # Pulsante Prossima Donazione
         next_donation_btn = QPushButton()
-        next_donation_btn.setIcon(QIcon('assets/blood.png'))
+        next_donation_btn.setIcon(QIcon('src/assets/blood.png'))
         next_donation_btn.setIconSize(QSize(24, 24))
         next_donation_btn.setToolTip("Vai alla prossima donazione")
         next_donation_btn.clicked.connect(self.calendar_manager.go_to_next_donation)
@@ -130,14 +130,27 @@ class MainWindow(QMainWindow):
         
         # Aggiungi shortcut per Ctrl+S
         save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
-        save_shortcut.activated.connect(self.save_current_day)
+        save_shortcut.activated.connect(self.save_current)
 
-    def save_current_day(self):
-        """Salva le prenotazioni del giorno corrente"""
-        dialog = self.findChild(DailyReservationsDialog)
-        if dialog:
-            dialog.save_reservations()
+    def save_current(self):
+        """Salva tutto lo stato dell'applicazione"""
+        try:
+            #Salva le prenotazioni del giorno corrente
+            dialog = self.findChild(DailyReservationsDialog)
+            if dialog:
+                dialog.save_reservations()
 
+            #Salva le impostazioni
+            self.settings.sync()
+
+            #Salva lo stato del database
+            self.database_manager.save_all()
+
+            #Mostra messaggio di conferma nella status bar
+            self.status_manager.show_message("Salvataggio dell'app completato. Ora puoi uscire.", 3000)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Si è verificato un errore durante il salvataggio: {str(e)}")
     def _setup_connections(self):
         """Configura le connessioni tra segnali e slot"""
         # Collega il cambio data all'apertura della finestra prenotazioni

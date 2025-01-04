@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
-    QLabel, QTableWidget, QTableWidgetItem, QStatusBar
+    QLabel, QTableWidget, QTableWidgetItem, QStatusBar, QMenuBar
 )
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QIcon
@@ -39,8 +39,8 @@ class DailyReservationsDialog(QDialog):
         self.reservations_widget.load_reservations(selected_date)
         
         # Mostra messaggio iniziale nella status bar
-        self.show_status_message("Pronto")
-        
+        self.show_status_message("Pronto")        
+
     def _init_toolbar(self, layout):
         """Inizializza la toolbar con i pulsanti"""
         toolbar = QHBoxLayout()
@@ -55,7 +55,7 @@ class DailyReservationsDialog(QDialog):
         
         for icon_name, tooltip, callback in buttons:
             button = QPushButton()
-            button.setIcon(QIcon(f'assets/{icon_name}'))
+            button.setIcon(QIcon(f'src/assets/{icon_name}'))
             button.setIconSize(QSize(24, 24))
             button.setToolTip(tooltip)
             button.clicked.connect(callback)
@@ -64,6 +64,7 @@ class DailyReservationsDialog(QDialog):
         
         toolbar.addStretch()
         layout.addLayout(toolbar)
+    
         
     def show_time_entry_dialog(self):
         """Mostra il dialog per l'inserimento degli orari"""

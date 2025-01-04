@@ -7,6 +7,7 @@ from core.database import (
     init_db, get_db_path, add_reservation, 
     save_donation_status, delete_reservation_from_db, add_to_history
 )
+from gui.dialogs.daily_reservations_dialog import DailyReservationsDialog
 import glob
 import sqlite3
 
@@ -243,3 +244,28 @@ class DatabaseManager(QObject):
             
         except Exception as e:
             self.main_window._handle_error("la ricarica del database", e) 
+    
+    def save_all(self):
+        """Salva tutto lo stato del database"""
+        try:
+            # Trova e salva le impostazioni aperte
+            dialog = self.main_window.findChild(DailyReservationsDialog)
+            if dialog:
+                dialog.save_reservations(
+                    table=dialog.reservations_table,
+                    date=dialog.date_edit.date().toString("yyyy-MM-dd"),
+                    show_dialog=False
+                )
+            # Esegui VACUUM se serve
+            self._check_and_vacuum(QDate.currentDate().toString("yyyy-MM-dd"))
+
+            #Aggiorna l'ultimo salvataggio
+            current_time = datetime.now().strftime("%H:%M:%S")
+            self.main_window.settings.setValue("last_save_time", current_time)
+            self.main_window.status_manager.update_last_save_info()
+
+            return True
+        
+        except Exception as e:
+            logger.error(f"Errore durante il salvataggio completo: {str(e)}")
+            return False

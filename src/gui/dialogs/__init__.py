@@ -7,6 +7,7 @@ from .statistics_dialog import StatisticsDialog
 from .time_entry_dialog import TimeEntryDialog
 from .manual_dialog import ManualDialog
 from .welcome_dialog import WelcomeDialog
+from .first_run_dialog import FirstRunDialog
 
 __all__ = [
     'HemodosDialog',
@@ -17,5 +18,6 @@ __all__ = [
     'TimeEntryDialog',
     'ManualDialog',
     'WelcomeDialog',
-    'ConfigDatabaseDialog'
+    'ConfigDatabaseDialog',
+    'FirstRunDialog'
 ] 

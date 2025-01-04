@@ -96,13 +96,13 @@ class Theme:
             }}
             
             QComboBox::down-arrow {{
-                image: url(assets/arrow_down.png);
+                image: url(src/assets/arrow_down.png);
                 width: 12px;
                 height: 12px;
             }}
             
             QComboBox::up-arrow {{
-                image: url(assets/arrow_up.png);
+                image: url(src/assets/arrow_up.png);
                 width: 12px;
                 height: 12px;
             }}
@@ -113,7 +113,7 @@ class Theme:
             }}
             
             QMenu::right-arrow {{
-                image: url(assets/arrow_right.png);
+                image: url(src/assets/arrow_right.png);
                 width: 12px;
                 height: 12px;
             }}
@@ -309,13 +309,13 @@ class Theme:
             }}
             
             QDialog QScrollBar::up-arrow:vertical {{
-                image: url(assets/arrow_up.png);
+                image: url(src/assets/arrow_up.png);
                 width: 12px;
                 height: 12px;
             }}
             
             QDialog QScrollBar::down-arrow:vertical {{
-                image: url(assets/arrow_down.png);
+                image: url(src/assets/arrow_down.png);
                 width: 12px;
                 height: 12px;
             }}
@@ -348,13 +348,13 @@ class Theme:
             }}
             
             QDialog QScrollBar::left-arrow:horizontal {{
-                image: url(assets/arrow_left.png);
+                image: url(src/assets/arrow_left.png);
                 width: 12px;
                 height: 12px;
             }}
             
             QDialog QScrollBar::right-arrow:horizontal {{
-                image: url(assets/arrow_right.png);
+                image: url(src/assets/arrow_right.png);
                 width: 12px;
                 height: 12px;
             }}
@@ -387,49 +387,49 @@ class Theme:
             }}
             
             QScrollBar::up-arrow {{
-                image: url(assets/arrow_up.png);
+                image: url(src/assets/arrow_up.png);
                 width: 12px;
                 height: 12px;
             }}
             
             QScrollBar::down-arrow {{
-                image: url(assets/arrow_down.png);
+                image: url(src/assets/arrow_down.png);
                 width: 12px;
                 height: 12px;
             }}
             
             QScrollBar::left-arrow {{
-                image: url(assets/arrow_left.png);
+                image: url(src/assets/arrow_left.png);
                 width: 12px;
                 height: 12px;
             }}
             
             QScrollBar::right-arrow {{
-                image: url(assets/arrow_right.png);
+                image: url(src/assets/arrow_right.png);
                 width: 12px;
                 height: 12px;
             }}
             
             QSpinBox::up-button {{
-                image: url(assets/arrow_up.png);
+                image: url(src/assets/arrow_up.png);
                 width: 12px;
                 height: 12px;
             }}
             
             QSpinBox::down-button {{
-                image: url(assets/arrow_down.png);
+                image: url(src/assets/arrow_down.png);
                 width: 12px;
                 height: 12px;
             }}
             
             QHeaderView::up-arrow {{
-                image: url(assets/arrow_up.png);
+                image: url(src/assets/arrow_up.png);
                 width: 12px;
                 height: 12px;
             }}
             
             QHeaderView::down-arrow {{
-                image: url(assets/arrow_down.png);
+                image: url(src/assets/arrow_down.png);
                 width: 12px;
                 height: 12px;
             }}
