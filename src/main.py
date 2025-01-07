@@ -112,36 +112,33 @@ def main():
         update_checker.update_available.connect(show_update_dialog)
         update_checker.start()
     
-    first_run = settings.value("first_run", True, type=bool)
-
-    # Si occupa del primo avvio
-    if first_run:
-        # Imposta il tema scuro come predefinito, si può cambiare in qualsiasi momento
-        settings.setValue("theme", "dark")
-        dialog = FirstRunDialog()
-        dialog.first_run = True
-        if dialog.exec_() == QDialog.Rejected:
-            sys.exit()
-        settings.setValue("first_run", False)
-
     # Load config
     config = load_config()
-
-    # Mostra il dialogo di benvenuto agli avvii successivi al primo
-    if settings.value("first_run", True, type=bool):
-        # mostra firstrundialog perché primo avvio (gestito sopra)
-        pass
-    else:
-        # Non è il primo avvio, mostra il dialogo di benvenuto standard
-        from gui.dialogs.welcome_dialog import WelcomeDialog
-        welcome = WelcomeDialog()
-        if welcome.exec_() == QDialog.Rejected:
-           sys.exit()
     
-    # Avvia l'applicazione principale
+    # Crea la finestra principale prima dei dialoghi
     window = MainWindow(config)
+    
+    # Imposta e applica il tema scuro come predefinito
+    settings.setValue("theme", "dark")
+    window.theme_manager.apply_theme()
+    
+    first_run = settings.value("first_run", True, type=bool)
+    
+    # Si occupa del primo avvio
+    if first_run:
+        dialog = FirstRunDialog(window)
+        dialog.first_run = True
+        result = dialog.exec_()
+        if result == QDialog.Rejected:
+            sys.exit()
+        settings.setValue("first_run", False)
+    else:
+        welcome = WelcomeDialog(window)
+        if welcome.exec_() == QDialog.Rejected:
+            sys.exit()
+    
+    # Mostra la finestra principale
     window.show()
-
     sys.exit(app.exec_())
 
 if __name__ == "__main__":

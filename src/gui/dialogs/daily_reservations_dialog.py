@@ -46,13 +46,19 @@ class DailyReservationsDialog(QDialog):
         """Inizializza la toolbar con i pulsanti"""
         toolbar = QHBoxLayout()
         
-        # Ottieni il percorso base dell'applicazione
+        # Ottieni il percorso base dell'applicazione e delle risorse
         if getattr(sys, 'frozen', False):
             # Se l'app è "frozen" (compilata)
             base_path = os.path.dirname(sys.executable)
+            assets_path = os.path.join(base_path, "src", "assets")
         else:
             # Se l'app è in sviluppo
             base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            assets_path = os.path.join(base_path, "assets")
+            
+            # Fallback se il percorso non esiste
+            if not os.path.exists(assets_path):
+                assets_path = os.path.join(base_path, "src", "assets")
         
         buttons = [
             ("add_time.png", "Aggiungi orario", self.show_time_entry_dialog),
@@ -64,8 +70,23 @@ class DailyReservationsDialog(QDialog):
         
         for icon_name, tooltip, callback in buttons:
             button = QPushButton()
-            icon_path = os.path.join(base_path, "src", "assets", icon_name)
-            button.setIcon(QIcon(icon_path))
+            icon_path = os.path.join(assets_path, icon_name)
+            
+            # Debug: stampa il percorso dell'icona e se esiste
+            print(f"Cercando icona in: {icon_path}")
+            print(f"L'icona esiste: {os.path.exists(icon_path)}")
+            
+            if os.path.exists(icon_path):
+                button.setIcon(QIcon(icon_path))
+            else:
+                print(f"Icona non trovata: {icon_path}")
+                # Prova un percorso alternativo
+                alt_path = os.path.join("src", "assets", icon_name)
+                if os.path.exists(alt_path):
+                    button.setIcon(QIcon(alt_path))
+                else:
+                    print(f"Icona non trovata neanche in: {alt_path}")
+            
             button.setIconSize(QSize(24, 24))
             button.setToolTip(tooltip)
             button.clicked.connect(callback)

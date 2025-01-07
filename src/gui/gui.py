@@ -12,7 +12,7 @@ import sys
 
 # Importazioni managers
 from core.managers.year_manager import YearManager
-from core.managers.database_manager import DatabaseManager 
+from core.managers.database_manager import DatabaseManager
 from core.managers.autosave_manager import AutosaveManager
 from core.managers.menu_manager import MenuManager
 from core.managers.theme_manager import ThemeManager
@@ -20,6 +20,7 @@ from core.managers.export_manager import ExportManager
 from core.managers.calendar_manager import CalendarManager
 from core.managers.status_manager import StatusManager
 from core.managers.print_manager import PrintManager
+from core.managers.database_dir_manager import DatabaseDirManager
 
 # Importazioni utils
 from core.utils import print_data
@@ -74,6 +75,7 @@ class MainWindow(QMainWindow):
     def _init_managers(self):
         """Inizializza i manager dell'applicazione"""
         self.database_manager = DatabaseManager(self)
+        self.database_dir_manager = DatabaseDirManager(self)
         self.autosave_manager = AutosaveManager(self)
         self.menu_manager = MenuManager(self)
         self.theme_manager = ThemeManager(self)
@@ -142,7 +144,7 @@ class MainWindow(QMainWindow):
 
             #Salva le impostazioni
             self.settings.sync()
-
+            
             #Salva lo stato del database
             self.database_manager.save_all()
 

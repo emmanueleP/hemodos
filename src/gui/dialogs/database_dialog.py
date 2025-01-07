@@ -14,6 +14,7 @@ import sqlite3
 class ConfigDatabaseDialog(HemodosDialog):
     def __init__(self, parent=None):
         super().__init__(parent, "Gestione database Hemodos")
+        self.main_window = parent
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
         self.selected_option = None
         self.init_ui()
@@ -131,88 +132,33 @@ class ConfigDatabaseDialog(HemodosDialog):
         
         try:
             if self.selected_option == 1:  # Nuovo database locale
-                # Crea la directory Hemodos in Documenti
-                base_path = os.path.expanduser("~/Documents/Hemodos")
-                year_path = os.path.join(base_path, str(QDate.currentDate().year()))
-                os.makedirs(year_path, exist_ok=True)
-                self.settings.setValue("cloud_service", "Locale")
-                
+                if not self.main_window.database_dir_manager.setup_local_database():
+                    return
+                    
             elif self.selected_option == 2:  # Database locale esistente
-                # Seleziona la cartella Hemodos
-                base_path = QFileDialog.getExistingDirectory(
-                    self, 
-                    "Seleziona la cartella Hemodos",
-                    os.path.expanduser("~/Documents")
-                )
-                if not base_path:
+                if not self.main_window.database_dir_manager.open_local_database():
                     return
                     
-                # Verifica se la cartella selezionata è un anno
-                if os.path.basename(base_path).isdigit():
-                    year = os.path.basename(base_path)
-                    self.settings.setValue("selected_year", year)
-                    self.settings.setValue("cloud_service", "Locale")
-                    
-                    # Carica i database dell'anno selezionato
-                    self.load_year_databases(base_path, year)
-                else:
-                    QMessageBox.warning(self, "Errore", "Seleziona una cartella anno valida")
-                    return
-                
             elif self.selected_option == 3:  # Database esistente su cloud
-                # Chiedi quale servizio cloud
-                cloud_service = QMessageBox.question(
+                reply = QMessageBox.question(
                     self,
                     "Seleziona Servizio Cloud",
                     "Quale servizio cloud vuoi utilizzare?",
-                    "OneDrive|Google Drive",
-                    defaultButtonNumber=0
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
                 )
                 
-                cloud_path = None
-                if cloud_service == 0:  # OneDrive
-                    cloud_path = self._get_onedrive_path()
-                    self.settings.setValue("cloud_service", "OneDrive")
-                else:  # Google Drive
-                    cloud_path = self._get_gdrive_path()
-                    self.settings.setValue("cloud_service", "GoogleDrive")
-                
-                if not cloud_path:
-                    QMessageBox.warning(self, "Errore", "Cartella cloud non trovata")
-                    return
-                
-                # Seleziona la cartella Hemodos esistente
-                hemodos_path = QFileDialog.getExistingDirectory(
-                    self, 
-                    "Seleziona la cartella Hemodos",
-                    os.path.join(cloud_path, "Hemodos")
-                )
-                if hemodos_path:
-                    self.settings.setValue("cloud_path", cloud_path)
-                else:
+                service = "OneDrive" if reply == QMessageBox.Yes else "GoogleDrive"
+                if not self.main_window.database_dir_manager.open_cloud_database(service):
                     return
 
             elif self.selected_option == 4:  # Nuovo database OneDrive
-                onedrive_path = self._get_onedrive_path()
-                if not onedrive_path:
-                    QMessageBox.warning(self, "Errore", "Cartella OneDrive non trovata")
+                if not self.main_window.database_dir_manager.setup_cloud_database("OneDrive"):
                     return
-                base_path = os.path.join(onedrive_path, "Hemodos")
-                year_path = os.path.join(base_path, str(QDate.currentDate().year()))
-                os.makedirs(year_path, exist_ok=True)
-                self.settings.setValue("cloud_service", "OneDrive")
-                self.settings.setValue("cloud_path", onedrive_path)
 
             elif self.selected_option == 5:  # Nuovo database Google Drive
-                gdrive_path = self._get_gdrive_path()
-                if not gdrive_path:
-                    QMessageBox.warning(self, "Errore", "Cartella Google Drive non trovata")
+                if not self.main_window.database_dir_manager.setup_cloud_database("GoogleDrive"):
                     return
-                base_path = os.path.join(gdrive_path, "Hemodos")
-                year_path = os.path.join(base_path, str(QDate.currentDate().year()))
-                os.makedirs(year_path, exist_ok=True)
-                self.settings.setValue("cloud_service", "GoogleDrive")
-                self.settings.setValue("cloud_path", gdrive_path)
             
             self.accept()
             

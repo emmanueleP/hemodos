@@ -1,6 +1,6 @@
 from PyQt5.QtCore import QSettings, Qt
 from PyQt5.QtGui import QPixmap, QIcon, QFont
-from PyQt5.QtWidgets import QLabel, QHBoxLayout, QPushButton, QVBoxLayout
+from PyQt5.QtWidgets import QLabel, QHBoxLayout, QPushButton, QVBoxLayout, QDialog, QMessageBox
 from gui.dialogs.base_dialog import HemodosDialog
 from gui.dialogs.database_dialog import ConfigDatabaseDialog
 import sys
@@ -118,20 +118,35 @@ class FirstRunDialog(HemodosDialog):
     
     def show_manual_dialog(self):
         from gui.dialogs.manual_dialog import ManualDialog
-        manual_dialog = ManualDialog()
+        manual_dialog = ManualDialog(self)
         manual_dialog.exec_()
     
     def show_info_dialog(self):
         from gui.dialogs.info_dialog import InfoDialog
-        info_dialog = InfoDialog()
+        info_dialog = InfoDialog(self)
         info_dialog.exec_()
     
     def show_database_dialog(self):
         from gui.dialogs.database_dialog import ConfigDatabaseDialog
-        database_dialog = ConfigDatabaseDialog()
-        database_dialog.exec_()
+        database_dialog = ConfigDatabaseDialog(self.parent())
+        if database_dialog.exec_() == QDialog.Accepted:
+            self.accept()  # Chiudi il FirstRunDialog se il database è configurato
 
     def closeEvent(self, event):
-        """Chiude l'applicazione"""
-        sys.exit()
+        """Gestisce la chiusura del dialog"""
+        if self.first_run:
+            reply = QMessageBox.question(
+                self,
+                'Conferma uscita',
+                'Vuoi davvero uscire? La configurazione non è completa.',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                event.accept()
+                sys.exit()
+            else:
+                event.ignore()
+        else:
+            event.accept()
     
