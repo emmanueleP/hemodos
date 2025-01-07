@@ -56,8 +56,8 @@ class FirstRunDialog(HemodosDialog):
         self.content_layout.addStretch()       
 
         #Pulsante manuale
-        manual_button = QPushButton()
-        manual_button.setIcon(QIcon('src/assets/user_guide_64px.png'))  # Assicurati di avere questa icona
+        manual_button = QPushButton("Apri Manuale")
+        manual_button.setIcon(QIcon('src/assets/user_guide_64px.png'))  
         manual_button.setToolTip("Apri Manuale")
         manual_button.setStyleSheet("""
             QPushButton {
@@ -74,8 +74,8 @@ class FirstRunDialog(HemodosDialog):
         self.buttons_layout.addWidget(manual_button)
 
         #Pulsante configurazione database
-        database_button = QPushButton()
-        database_button.setIcon(QIcon('src/assets/database_64px.png'))  # Assicurati di avere questa icona
+        database_button = QPushButton("Configura database")
+        database_button.setIcon(QIcon('src/assets/database_64px.png'))  
         database_button.setToolTip("Configura il database")
         database_button.setStyleSheet("""
             QPushButton {
