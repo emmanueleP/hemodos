@@ -10,6 +10,7 @@ from core.database import add_donation_time
 from gui.dialogs.time_entry_dialog import TimeEntryDialog
 from core.utils import print_data
 import os
+import sys
 
 class DailyReservationsDialog(QDialog):
     def __init__(self, main_window, selected_date):
@@ -45,6 +46,14 @@ class DailyReservationsDialog(QDialog):
         """Inizializza la toolbar con i pulsanti"""
         toolbar = QHBoxLayout()
         
+        # Ottieni il percorso base dell'applicazione
+        if getattr(sys, 'frozen', False):
+            # Se l'app è "frozen" (compilata)
+            base_path = os.path.dirname(sys.executable)
+        else:
+            # Se l'app è in sviluppo
+            base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        
         buttons = [
             ("add_time.png", "Aggiungi orario", self.show_time_entry_dialog),
             ("diskette.png", "Salva (Ctrl+S)", self.save_reservations),
@@ -55,7 +64,8 @@ class DailyReservationsDialog(QDialog):
         
         for icon_name, tooltip, callback in buttons:
             button = QPushButton()
-            button.setIcon(QIcon(f'src/assets/{icon_name}'))
+            icon_path = os.path.join(base_path, "src", "assets", icon_name)
+            button.setIcon(QIcon(icon_path))
             button.setIconSize(QSize(24, 24))
             button.setToolTip(tooltip)
             button.clicked.connect(callback)

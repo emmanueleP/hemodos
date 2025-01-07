@@ -120,7 +120,7 @@ class InfoDialog(HemodosDialog):
             <a href='https://github.com/emmanueleP/Hemodos'>GitHub</a>
             
             <h3>Version:</h3>
-            <p>1.0.2</p>
+            <p>1.0.3</p>
         """)
         main_layout.addWidget(info_text)
         self.content_layout.addWidget(main_container)
