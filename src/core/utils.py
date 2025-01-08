@@ -6,10 +6,16 @@ import os
 from datetime import datetime
 from core.logger import logger
 from PyQt5.QtGui import QTextDocument
+from PyQt5.QtCore import QSettings
 
 def export_to_docx(date, data, file_path, logo_path=None):
     """Esporta i dati in un file Word"""
     try:
+        #Ottieni il logo dalle impostazioni
+        if not logo_path:
+            settings = QSettings('Hemodos', 'DatabaseSettings')
+            logo_path = settings.value("print_logo", '')
+        
         doc = Document()
         
         # Stile del documento

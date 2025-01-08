@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 from PyQt5.QtGui import QTextDocument, QFont
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSettings
 import os
 
 class PrintManager:
@@ -20,9 +20,12 @@ class PrintManager:
                 document = QTextDocument()
                 
                 # Ottieni il logo dalle impostazioni
-                logo_path = self.main_window.settings.value("print_logo", "")
+                settings = QSettings('Hemodos', 'DatabaseSettings')
+                logo_path = settings.value("print_logo", '')
+                
+                # Ottieni i dati dalla tabella
+                data = dialog._collect_table_data()
                 date = dialog.selected_date.toString("dd/MM/yyyy")
-                data = self._collect_table_data(dialog.reservations_widget.get_table())
                 
                 if data:
                     # Crea l'HTML per il documento
@@ -31,21 +34,12 @@ class PrintManager:
                     <head>
                         <style>
                             body {{ font-family: Arial; }}
-                            .header {{
-                                display: flex;
-                                align-items: center;
-                                justify-content: space-between;
-                                margin-bottom: 20px;
-                            }}
-                            .logo {{ 
-                                max-width: 150px;
-                                max-height: 150px;
-                            }}
                             .title {{ 
                                 color: red; 
                                 font-size: 24pt; 
                                 text-align: center;
                                 font-weight: bold;
+                                margin-bottom: 20px;
                             }}
                             .date {{
                                 font-size: 12pt;
@@ -77,21 +71,7 @@ class PrintManager:
                         </style>
                     </head>
                     <body>
-                    """
-
-                    # Aggiungi logo se esiste
-                    if logo_path and os.path.exists(logo_path):
-                        html += f"""
-                        <div class="header">
-                            <img src="{logo_path}" class="logo">
-                            <div class="title">Prenotazioni</div>
-                            <div style="width: 150px"></div>
-                        </div>
-                        """
-                    else:
-                        html += '<div class="title">Prenotazioni</div>'
-
-                    html += f"""
+                        <div class="title">Prenotazioni</div>
                         <div class="date">Data: {date}</div>
                         <table>
                             <tr>

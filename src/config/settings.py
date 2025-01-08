@@ -154,7 +154,7 @@ class SettingsDialog(HemodosDialog):
         return update_tab
 
     def get_current_version(self):
-        return "1.0.4"  # Versione corrente dell'app
+        return "1.0.5"  # Versione corrente dell'app
 
     def check_updates_manually(self):
         """Controlla manualmente gli aggiornamenti"""

@@ -132,8 +132,6 @@ class DailyReservationsDialog(QDialog):
             table.currentRow()
         ):
             self.show_status_message("Prenotazione eliminata", 3000)
-        else:
-            self.show_status_message("Errore durante l'eliminazione", 3000) 
 
     def print_reservations(self):
         """Stampa le prenotazioni"""
