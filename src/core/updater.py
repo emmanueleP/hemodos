@@ -36,32 +36,32 @@ class UpdateChecker(QThread):
             latest_release = releases[0]  # Il primo è il più recente
             latest_version = latest_release['tag_name'].lstrip('v')
             
-            # Controlla se c'è una versione più recente
-            if self._compare_versions(latest_version, self.current_version) > 0:
-                # Ottieni l'asset dell'installer
-                assets_url = latest_release['assets_url']
-                assets_response = requests.get(assets_url, headers=headers)
-                assets_response.raise_for_status()
-                
-                assets = assets_response.json()
-                installer_asset = next(
-                    (asset for asset in assets if asset['name'].endswith('.exe')), 
-                    None
-                )
-                
-                if installer_asset:
-                    download_url = installer_asset['browser_download_url']
-                    self.update_available.emit(
-                        latest_version,
-                        latest_release['body'],  # Release notes
-                        download_url
+            # Controlla se la versione più recente è diversa da quella corrente
+            if latest_version != self.current_version:
+                # Controlla se c'è una versione più recente
+                if self._compare_versions(latest_version, self.current_version) > 0:
+                    # Ottieni l'asset dell'installer
+                    assets = latest_release['assets']
+                    installer_asset = next(
+                        (asset for asset in assets if asset['name'].endswith('.exe')), 
+                        None
                     )
-                    logger.info(f"Nuova versione disponibile: {latest_version}")
                     
-                    # Aggiungi alla cronologia degli aggiornamenti
-                    self.add_to_update_history(latest_version, latest_release['published_at'])
+                    if installer_asset:
+                        download_url = installer_asset['browser_download_url']
+                        self.update_available.emit(
+                            latest_version,
+                            latest_release['body'],  # Release notes
+                            download_url
+                        )
+                        logger.info(f"Nuova versione disponibile: {latest_version}")
+                        
+                        # Aggiungi alla cronologia degli aggiornamenti
+                        self.add_to_update_history(latest_version, latest_release['published_at'])
+                    else:
+                        raise UpdateError("Installer non trovato nel release")
                 else:
-                    raise UpdateError("Installer non trovato nel release")
+                    logger.info(f"Versione corrente ({self.current_version}) è aggiornata")
             
         except Exception as e:
             error_msg = f"Errore nel controllo aggiornamenti: {str(e)}"
@@ -124,7 +124,7 @@ class Updater(QThread):
             total_size = int(response.headers.get('content-length', 0))
             
             # Prepara il percorso di download
-            download_path = os.path.expanduser("~/Downloads/Hemodos_Setup_new.exe")
+            download_path = os.path.join(os.path.expanduser("~/Downloads"), "Hemodos_Setup.exe")
             
             # Scarica il file mostrando il progresso
             with open(download_path, 'wb') as f:
@@ -138,7 +138,7 @@ class Updater(QThread):
                         progress = int((downloaded / total_size) * 100)
                         self.update_progress.emit(progress)
             
-            # Avvia l'installer
+            # Avvia l'installer automaticamente
             os.startfile(download_path)
             self.update_completed.emit()
             
