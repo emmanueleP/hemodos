@@ -301,23 +301,30 @@ class SettingsDialog(HemodosDialog):
         # Auto-save group
         autosave_group = QGroupBox("Salvataggio Automatico")
         autosave_layout = QVBoxLayout()
-        
+
         self.autosave_check = QCheckBox("Abilita salvataggio automatico")
         self.autosave_check.setChecked(self.settings.value("autosave_enabled", False, type=bool))
         autosave_layout.addWidget(self.autosave_check)
-        
+
+        # Interval group dentro autosave_group
         interval_layout = QHBoxLayout()
-        interval_layout.addWidget(QLabel("Intervallo di salvataggio:"))
+        interval_layout.addWidget(QLabel("Salvataggio automatico ogni:"))
         self.interval_spin = QSpinBox()
         self.interval_spin.setRange(1, 60)
         self.interval_spin.setValue(self.settings.value("autosave_interval", 5, type=int))
         interval_layout.addWidget(self.interval_spin)
         interval_layout.addWidget(QLabel("minuti"))
         interval_layout.addStretch()
+        
+        # Aggiungi interval_layout a autosave_layout
         autosave_layout.addLayout(interval_layout)
         
+        # Imposta il layout per autosave_group
         autosave_group.setLayout(autosave_layout)
+        
+        # Aggiungi il gruppo al layout principale
         layout.addWidget(autosave_group)
+        layout.addStretch()
         
         saving_tab.setLayout(layout)
         return saving_tab
