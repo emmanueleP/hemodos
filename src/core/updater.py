@@ -2,45 +2,77 @@ import requests
 import os
 import json
 from PyQt5.QtCore import QThread, pyqtSignal, QSettings
+from PyQt5.QtWidgets import QSystemTrayIcon, QMenu
+from PyQt5.QtGui import QIcon
 from core.logger import logger
 from core.exceptions import UpdateError
+import winreg
+from win10toast_click import ToastNotifier
 
 class UpdateChecker(QThread):
     update_available = pyqtSignal(str, str, str)  # version, release_notes, download_url
+    no_update_available = pyqtSignal()
     error_occurred = pyqtSignal(str)
     
-    def __init__(self, current_version):
+    def __init__(self, current_version, owner, repo, main_window):
         super().__init__()
         self.current_version = current_version
+        self.owner = owner
+        self.repo = repo
         self.base_url = "https://api.github.com"
-        self.owner = "emmanueleP"
-        self.repo = "hemodos"
+        self.main_window = main_window
+        self._is_running = True
+        self.toaster = ToastNotifier()
+        
+    def stop(self):
+        self._is_running = False
+        self.wait()
+
+    def show_update_notification(self, version, notes, url):
+        """Mostra una notifica Windows cliccabile"""
+        try:
+            def on_notification_click():
+                from gui.dialogs.update_dialog import UpdateDialog
+                dialog = UpdateDialog(self.main_window)
+                dialog.show_update_available(version, notes, url)
+                dialog.exec_()
+
+            # Mostra la notifica
+            self.toaster.show_toast(
+                "Hemodos - Aggiornamento Disponibile",
+                f"Nuova versione {version} disponibile. Clicca qui per aggiornare.",
+                icon_path="src/assets/logo.ico",
+                duration=10,
+                threaded=True,
+                callback_on_click=on_notification_click
+            )
+        except Exception as e:
+            logger.error(f"Errore nella notifica: {str(e)}")
         
     def run(self):
+        if not self._is_running:
+            return
+            
         try:
             headers = {
                 'Accept': 'application/vnd.github+json',
                 'X-GitHub-Api-Version': '2022-11-28'
             }
             
-            # Prima ottieni l'ultimo release
             releases_url = f"{self.base_url}/repos/{self.owner}/{self.repo}/releases"
             response = requests.get(releases_url, headers=headers)
             response.raise_for_status()
             
             releases = response.json()
             if not releases:
-                logger.info("Nessun release trovato")
+                self.no_update_available.emit()
                 return
                 
-            latest_release = releases[0]  # Il primo è il più recente
+            latest_release = releases[0]
             latest_version = latest_release['tag_name'].lstrip('v')
             
-            # Controlla se la versione più recente è diversa da quella corrente
             if latest_version != self.current_version:
-                # Controlla se c'è una versione più recente
                 if self._compare_versions(latest_version, self.current_version) > 0:
-                    # Ottieni l'asset dell'installer
                     assets = latest_release['assets']
                     installer_asset = next(
                         (asset for asset in assets if asset['name'].endswith('.exe')), 
@@ -49,25 +81,27 @@ class UpdateChecker(QThread):
                     
                     if installer_asset:
                         download_url = installer_asset['browser_download_url']
-                        self.update_available.emit(
+                        # Mostra la notifica invece di emettere il segnale
+                        self.show_update_notification(
                             latest_version,
-                            latest_release['body'],  # Release notes
+                            latest_release['body'],
                             download_url
                         )
                         logger.info(f"Nuova versione disponibile: {latest_version}")
-                        
-                        # Aggiungi alla cronologia degli aggiornamenti
                         self.add_to_update_history(latest_version, latest_release['published_at'])
                     else:
                         raise UpdateError("Installer non trovato nel release")
                 else:
-                    logger.info(f"Versione corrente ({self.current_version}) è aggiornata")
+                    self.no_update_available.emit()
+            else:
+                self.no_update_available.emit()
             
         except Exception as e:
-            error_msg = f"Errore nel controllo aggiornamenti: {str(e)}"
-            self.error_occurred.emit(error_msg)
-            logger.error(error_msg)
-    
+            if self._is_running:
+                error_msg = f"Errore nel controllo aggiornamenti: {str(e)}"
+                self.error_occurred.emit(error_msg)
+                logger.error(error_msg)
+
     def add_to_update_history(self, version, date):
         """Aggiunge un entry alla cronologia degli aggiornamenti"""
         try:

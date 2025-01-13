@@ -86,10 +86,16 @@ class MenuManager:
         manual_action.triggered.connect(main_window.show_manual)
         info_menu.addAction(manual_action)
         
+        # Aggiornamenti
+        updates_action = QAction(QIcon('src/assets/update.png'), 'Controlla Aggiornamenti', main_window)
+        updates_action.setShortcut('Ctrl+U')
+        updates_action.triggered.connect(self._show_updates)
+        info_menu.addAction(updates_action)
+
         # About action
         about_action = QAction('Informazioni su Hemodos', main_window)
         about_action.triggered.connect(main_window.show_info)
-        info_menu.addAction(about_action)
+        info_menu.addAction(about_action)      
 
     def _save_current_reservations(self):
         """Salva le prenotazioni della finestra corrente"""
@@ -103,4 +109,20 @@ class MenuManager:
                 "Apri prima una finestra delle prenotazioni"
             )
 
-    # Rimuovi il metodo create_status_bar() poiché ora è gestito da StatusManager 
+    def _show_updates(self):
+        """Mostra il dialog degli aggiornamenti"""
+        from gui.dialogs.update_dialog import UpdateDialog
+        dialog = UpdateDialog(self.main_window)
+        dialog.exec_()
+
+    def _show_manual(self):
+        """Mostra il manuale"""
+        from gui.dialogs.manual_dialog import ManualDialog
+        dialog = ManualDialog(self.main_window)
+        dialog.exec_()
+
+    def _show_info(self):
+        """Mostra le informazioni"""
+        from gui.dialogs.info_dialog import InfoDialog
+        dialog = InfoDialog(self.main_window)
+        dialog.exec_()

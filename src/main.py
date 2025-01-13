@@ -105,17 +105,10 @@ def main():
     
     settings = QSettings('Hemodos', 'DatabaseSettings')
     
-    # Controllo aggiornamenti automatico
-    if settings.value("check_updates", True, type=bool):
-        from core.updater import UpdateChecker
-        update_checker = UpdateChecker("1.0.0")
-        update_checker.update_available.connect(show_update_dialog)
-        update_checker.start()
-    
     # Load config
     config = load_config()
     
-    # Crea la finestra principale prima dei dialoghi
+    # Crea la finestra principale
     window = MainWindow(config)
     
     # Imposta e applica il tema scuro come predefinito
