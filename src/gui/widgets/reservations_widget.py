@@ -4,6 +4,7 @@ from PyQt5.QtCore import QTime, Qt, QDate
 from core.logger import logger
 from core.database import get_reservations, add_reservation, save_donation_status
 from datetime import datetime
+from core.database import delete_reservation_from_db
 
 class ReservationsWidget(QWidget):
     def __init__(self, parent=None):
@@ -171,6 +172,12 @@ class ReservationsWidget(QWidget):
                 "Errore",
                 f"Errore nel salvataggio della prenotazione: {str(e)}"
             )
+
+    def delete_reservation(self, row):
+        """Elimina una prenotazione dal database"""
+        time = self.table.item(row, 0).text()
+        delete_reservation_from_db(self.main_window.calendar.selectedDate(), time)
+        self.load_default_times()
 
     def clear_table(self):
         """Pulisce la tabella"""
