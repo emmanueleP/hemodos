@@ -9,10 +9,10 @@
 ## 📥 Download
 
 🇮🇹 Scarica l'ultima versione:
-- [Hemodos v1.0.5](https://github.com/emmanueleP/hemodos/releases/tag/v1.0.5) (Windows)
+- [Hemodos v1.0.6](https://github.com/emmanueleP/hemodos/releases/tag/v1.0.6) (Windows)
 
 🇬🇧 Download the latest version:
-- [Hemodos v1.0.5](https://github.com/emmanueleP/hemodos/releases/tag/v1.0.5) (Windows)
+- [Hemodos v1.0.6](https://github.com/emmanueleP/hemodos/releases/tag/v1.0.6) (Windows)
 
 ## ✨ Caratteristiche Principali | Main Features
 
