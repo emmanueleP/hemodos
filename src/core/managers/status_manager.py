@@ -9,10 +9,12 @@ class StatusManager:
         
         # Crea le label permanenti
         self.db_label = QLabel()
+        self.cloud_label = QLabel()
         self.last_save_label = QLabel()
         
         # Aggiungi le label alla status bar
         self.status_bar.addPermanentWidget(self.db_label)
+        self.status_bar.addPermanentWidget(self.cloud_label)
         self.status_bar.addPermanentWidget(self.last_save_label)
         
         # Inizializza le informazioni
@@ -24,10 +26,20 @@ class StatusManager:
         
     def update_db_info(self, year, date_str, exists=True):
         """Aggiorna le informazioni del database"""
-        if exists:
-            self.db_label.setText(f"Database: {year} - {date_str}")
+        # Determina il tipo di storage
+        cloud_service = self.main_window.settings.value("cloud_service", "Locale")
+        storage_info = ""
+        
+        if cloud_service == "Locale":
+            storage_info = "(Documenti)"
         else:
-            self.db_label.setText(f"Database: {year} - {date_str} (Non esistente)")
+            storage_info = f"({cloud_service})"
+            
+        # Costruisci il messaggio
+        if exists:
+            self.db_label.setText(f"Database: {year} - {date_str} {storage_info}")
+        else:
+            self.db_label.setText(f"Database: {year} - {date_str} {storage_info} (Non esistente)")
             
     def update_last_save_info(self):
         """Aggiorna le informazioni sull'ultimo salvataggio"""
@@ -36,4 +48,13 @@ class StatusManager:
         
     def set_db_error(self):
         """Imposta il messaggio di errore del database"""
-        self.db_label.setText("Errore info database") 
+        cloud_service = self.main_window.settings.value("cloud_service", "Locale")
+        storage_info = "(Documenti)" if cloud_service == "Locale" else f"({cloud_service})"
+        self.db_label.setText(f"Errore info database {storage_info}")
+
+    def update_cloud_info(self, message):
+        """Aggiorna le informazioni del cloud"""
+        if message:  # Se c'è un messaggio cloud
+            self.cloud_label.setText(message)
+        else:  # Se non c'è messaggio (modalità locale)
+            self.cloud_label.setText("") 

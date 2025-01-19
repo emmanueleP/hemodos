@@ -21,6 +21,7 @@ from core.managers.calendar_manager import CalendarManager
 from core.managers.status_manager import StatusManager
 from core.managers.print_manager import PrintManager
 from core.managers.database_dir_manager import DatabaseDirManager
+from core.managers.cloud_manager import CloudManager
 
 # Importazioni utils
 from core.utils import print_data
@@ -74,15 +75,19 @@ class MainWindow(QMainWindow):
 
     def _init_managers(self):
         """Inizializza i manager dell'applicazione"""
+        # Prima i manager base
         self.database_manager = DatabaseManager(self)
         self.database_dir_manager = DatabaseDirManager(self)
+        self.status_manager = StatusManager(self)  # Sposta questo prima
+        
+        # Poi i manager che dipendono da altri
+        self.cloud_manager = CloudManager(self)
         self.autosave_manager = AutosaveManager(self)
         self.menu_manager = MenuManager(self)
         self.theme_manager = ThemeManager(self)
         self.export_manager = ExportManager(self)
         self.calendar_manager = CalendarManager(self)
         self.year_manager = YearManager()
-        self.status_manager = StatusManager(self)
         self.print_manager = PrintManager(self)
 
     def _init_ui_components(self):
@@ -242,36 +247,26 @@ class MainWindow(QMainWindow):
         return False
 
     def closeEvent(self, event):
-        """Gestisce l'evento di chiusura dell'applicazione"""
+        """Gestisce la chiusura dell'applicazione"""
         try:
+            # Prima ferma tutti i processi cloud
+            if hasattr(self, 'cloud_manager'):
+                self.cloud_manager.cleanup()
+            
+            # Poi gestisci il salvataggio
             dialog = self.findChild(DailyReservationsDialog)
             if dialog:
-                if dialog.save_reservations():
-                    if hasattr(self, 'observer') and self.observer:
-                        self.observer.stop()
-                    self.autosave_manager.stop_autosave()
-                    event.accept()
-                else:
-                    reply = QMessageBox.question(
-                        self, 'Conferma uscita',
-                        'Il salvataggio non è riuscito. Vuoi uscire comunque?',
-                        QMessageBox.Yes | QMessageBox.No,
-                        QMessageBox.No
-                    )
-                    if reply == QMessageBox.Yes:
-                        event.accept()
-                    else:
-                        event.ignore()
-            else:
-                if hasattr(self, 'observer') and self.observer:
-                    self.observer.stop()
-                self.autosave_manager.stop_autosave()
-                event.accept()
+                dialog.save_reservations()
+                dialog.close()
             
-            self.settings.remove("welcome_shown_this_session")
+            # Rimuovi il flag della sessione di benvenuto
+            if self.settings.contains("welcome_shown_this_session"):
+                self.settings.remove("welcome_shown_this_session")
+            
+            event.accept()
             
         except Exception as e:
-            logger.error(f"Errore durante la chiusura: {str(e)}")
+            logger.error(f"Errore nella chiusura dell'applicazione: {str(e)}")
             event.accept()
 
     def reload_database(self):

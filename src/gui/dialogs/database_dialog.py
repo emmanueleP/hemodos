@@ -1,8 +1,8 @@
 from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QPushButton, 
                             QLabel, QRadioButton, QButtonGroup, QFileDialog,
-                            QMessageBox, QGroupBox, QWidget, QInputDialog)
-from PyQt5.QtCore import QSettings, Qt, QDate
+                            QMessageBox, QGroupBox, QWidget, QInputDialog, QMenu, QDialog, QApplication)
+from PyQt5.QtCore import QSettings, Qt, QDate, QTimer
 from PyQt5.QtGui import QIcon, QPixmap
 import os
 from core.database import get_db_path
@@ -17,6 +17,7 @@ class ConfigDatabaseDialog(HemodosDialog):
         self.main_window = parent
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
         self.selected_option = None
+        self.cloud_thread = None  # Inizializza il thread cloud
         self.init_ui()
 
     def init_ui(self):
@@ -63,37 +64,32 @@ class ConfigDatabaseDialog(HemodosDialog):
         welcome_label.setStyleSheet("font-size: 14px;")
         main_layout.addWidget(welcome_label)
 
-        # Gruppo opzioni per il database
-        options_group = QGroupBox("Opzioni Database")
+        # Gruppo opzioni database
+        options_group = QGroupBox("Seleziona tipo di database")
         options_layout = QVBoxLayout()
         
-        self.button_group = QButtonGroup()
+        # Opzioni
+        self.local_new_button = QPushButton("Nuovo database locale")
+        self.local_new_button.clicked.connect(lambda: self.handle_selection(1))
+        options_layout.addWidget(self.local_new_button)
         
-        # Opzione 1: Nuovo database locale
-        new_local_radio = QRadioButton("Crea nuovo database locale")
-        self.button_group.addButton(new_local_radio, 1)
-        options_layout.addWidget(new_local_radio)
-
-        # Opzione 2: Database esistente locale
-        existing_local_radio = QRadioButton("Apri database locale esistente")
-        self.button_group.addButton(existing_local_radio, 2)
-        options_layout.addWidget(existing_local_radio)
-
-        # Opzione 3: Database esistente su cloud
-        existing_cloud_radio = QRadioButton("Apri database esistente su cloud")
-        self.button_group.addButton(existing_cloud_radio, 3)
-        options_layout.addWidget(existing_cloud_radio)
-
-        # Opzione 4: OneDrive
-        onedrive_radio = QRadioButton("Crea nuovo database su OneDrive")
-        self.button_group.addButton(onedrive_radio, 4)
-        options_layout.addWidget(onedrive_radio)
-
-        # Opzione 5: Google Drive
-        gdrive_radio = QRadioButton("Crea nuovo database su Google Drive")
-        self.button_group.addButton(gdrive_radio, 5)
-        options_layout.addWidget(gdrive_radio)
-
+        self.local_existing_button = QPushButton("Database locale esistente")
+        self.local_existing_button.clicked.connect(lambda: self.handle_selection(2))
+        options_layout.addWidget(self.local_existing_button)
+        
+        self.cloud_button = QPushButton("Database su cloud")
+        
+        # Controlla se c'è già un servizio cloud configurato
+        cloud_service = self.settings.value("cloud_service", "")
+        if cloud_service and cloud_service != "Locale":
+            self.cloud_button.setText(f"Database su cloud (Scelto: {cloud_service})")
+            self.selected_option = 3
+            ok_button = self.buttons_layout.itemAt(1).widget()
+            ok_button.setEnabled(True)
+            
+        self.cloud_button.clicked.connect(self._handle_cloud_database)
+        options_layout.addWidget(self.cloud_button)
+        
         options_group.setLayout(options_layout)
         main_layout.addWidget(options_group)
 
@@ -123,47 +119,33 @@ class ConfigDatabaseDialog(HemodosDialog):
         ok_button.clicked.connect(self.check_and_accept)
 
     def check_and_accept(self):
-        selected_button = self.button_group.checkedButton()
-        if not selected_button:
-            QMessageBox.warning(self, "Errore", "Seleziona un'opzione")
-            return
-
-        self.selected_option = self.button_group.id(selected_button)
-        
+        """Verifica e accetta il dialog"""
         try:
-            if self.selected_option == 1:  # Nuovo database locale
-                if not self.main_window.database_dir_manager.setup_local_database():
-                    return
-                    
-            elif self.selected_option == 2:  # Database locale esistente
-                if not self.main_window.database_dir_manager.open_local_database():
-                    return
-                    
-            elif self.selected_option == 3:  # Database esistente su cloud
-                reply = QMessageBox.question(
-                    self,
-                    "Seleziona Servizio Cloud",
-                    "Quale servizio cloud vuoi utilizzare?",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.Yes
-                )
+            if self.selected_option == 3:  # Cloud
+                cloud_path = self.settings.value("cloud_path", "")
+                service_name = self.settings.value("cloud_service", "")
                 
-                service = "OneDrive" if reply == QMessageBox.Yes else "GoogleDrive"
-                if not self.main_window.database_dir_manager.open_cloud_database(service):
-                    return
-
-            elif self.selected_option == 4:  # Nuovo database OneDrive
-                if not self.main_window.database_dir_manager.setup_cloud_database("OneDrive"):
-                    return
-
-            elif self.selected_option == 5:  # Nuovo database Google Drive
-                if not self.main_window.database_dir_manager.setup_cloud_database("GoogleDrive"):
-                    return
-            
-            self.accept()
-            
+                # Configura la sincronizzazione cloud
+                if self.main_window.cloud_manager.setup_cloud_sync(cloud_path):
+                    # Inizializza il monitoraggio
+                    self.main_window.cloud_manager.setup_monitoring()
+                    self.accept()
+                else:
+                    QMessageBox.critical(
+                        self,
+                        "Errore",
+                        "Impossibile configurare la sincronizzazione cloud"
+                    )
+            else:
+                self.accept()
+                
         except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Errore durante la configurazione: {str(e)}")
+            logger.error(f"Errore nella verifica finale: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nella configurazione finale:\n{str(e)}"
+            )
 
     def load_year_databases(self, base_path, year):
         """Carica i database per l'anno selezionato"""
@@ -181,24 +163,133 @@ class ConfigDatabaseDialog(HemodosDialog):
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Errore nel caricamento dei database: {str(e)}")
 
-    def _get_onedrive_path(self):
-        """Trova il percorso di OneDrive"""
-        possible_paths = [
-            os.path.expanduser("~/OneDrive"),
-            os.path.expanduser("~/OneDrive - Personal"),
-            "C:/Users/" + os.getlogin() + "/OneDrive",
-        ]
-        return next((path for path in possible_paths if os.path.exists(path)), None)
+    def handle_selection(self, option):
+        """Gestisce la selezione dell'opzione database"""
+        self.selected_option = option
+        
+        try:
+            if option == 1:  # Nuovo database locale
+                if not self.main_window.database_dir_manager.setup_local_database():
+                    return
+                self.accept()
+                
+            elif option == 2:  # Database locale esistente
+                if not self.main_window.database_dir_manager.open_local_database():
+                    return
+                self.accept()
+                
+            elif option == 3:  # Database cloud
+                self._handle_cloud_database()
+                
+        except Exception as e:
+            logger.error(f"Errore nella selezione del database: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nella selezione del database:\n{str(e)}"
+            )
 
-    def _get_gdrive_path(self):
-        """Trova il percorso di Google Drive"""
-        possible_paths = [
-            os.path.expanduser("~/Google Drive"),
-            os.path.expanduser("~/GoogleDrive"),
-            "C:/Users/" + os.getlogin() + "/Google Drive",
-            "C:/Users/" + os.getlogin() + "/GoogleDrive",
-        ]
-        return next((path for path in possible_paths if os.path.exists(path)), None)
+    def closeEvent(self, event):
+        """Gestisce la chiusura del dialog"""
+        try:
+            # Ferma tutti i processi cloud prima di chiudere
+            if hasattr(self.main_window, 'cloud_manager'):
+                self.main_window.cloud_manager.cleanup()
+            event.accept()
+            
+        except Exception as e:
+            logger.error(f"Errore nella chiusura del dialog: {str(e)}")
+            event.accept()
+
+    def _handle_cloud_database(self):
+        """Gestisce la selezione del database cloud"""
+        try:
+            # Trova i servizi cloud installati
+            available_services = []
+            
+            # Controlla OneDrive
+            onedrive_paths = [
+                os.path.expanduser("~/OneDrive"),
+                os.path.expanduser("~/OneDrive - Personal"),
+                "C:/Users/" + os.getlogin() + "/OneDrive",
+            ]
+            for path in onedrive_paths:
+                if os.path.exists(path):
+                    available_services.append(("OneDrive", path))
+                    break
+            
+            # Controlla Google Drive
+            gdrive_paths = [
+                os.path.expanduser("~/Google Drive"),
+                os.path.expanduser("~/GoogleDrive"),
+                "C:/Users/" + os.getlogin() + "/Google Drive",
+                "C:/Users/" + os.getlogin() + "/GoogleDrive",
+            ]
+            for path in gdrive_paths:
+                if os.path.exists(path):
+                    available_services.append(("Google Drive", path))
+                    break
+            
+            if not available_services:
+                QMessageBox.warning(
+                    self,
+                    "Nessun servizio cloud",
+                    "Nessun servizio cloud supportato trovato.\n"
+                    "Installa OneDrive o Google Drive per utilizzare questa funzionalità."
+                )
+                return
+            
+            # Crea il menu di selezione
+            menu = QMenu(self)
+            for service_name, path in available_services:
+                action = menu.addAction(service_name)
+                action.setData(path)
+            
+            # Mostra il menu
+            pos = self.cloud_button.mapToGlobal(self.cloud_button.rect().bottomLeft())
+            selected_action = menu.exec_(pos)
+            
+            if selected_action:
+                service_name = selected_action.text()
+                cloud_path = selected_action.data()
+                
+                # Salva le impostazioni
+                self.settings.setValue("cloud_service", service_name)
+                self.settings.setValue("cloud_path", cloud_path)
+                self.selected_option = 3  # Imposta l'opzione cloud
+                
+                # Aggiorna il testo del pulsante
+                self.cloud_button.setText(f"Database su cloud (Scelto: {service_name})")
+                
+                # Abilita il pulsante Avanti
+                ok_button = self.buttons_layout.itemAt(1).widget()
+                ok_button.setEnabled(True)
+                
+        except Exception as e:
+            logger.error(f"Errore nella configurazione cloud: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nella configurazione cloud:\n{str(e)}"
+            )
+
+    def accept(self):
+        """Override del metodo accept per gestire la chiusura corretta"""
+        try:
+            # Ferma il monitoraggio prima di chiudere
+            if hasattr(self.main_window, 'observer'):
+                self.main_window.observer.stop()
+                self.main_window.observer = None
+            
+            # Attendi che eventuali operazioni in sospeso siano completate
+            QApplication.processEvents()
+            
+            # Chiama il metodo della classe base
+            super().accept()
+            
+        except Exception as e:
+            logger.error(f"Errore nella chiusura del dialog: {str(e)}")
+            super().accept()
 
     def add_donation_date(self):
         """Aggiunge una data di donazione"""

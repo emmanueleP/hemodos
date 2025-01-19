@@ -1,6 +1,9 @@
 from PyQt5.QtCore import QObject, QSettings, QDate
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QInputDialog
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class DatabaseDirManager(QObject):
     def __init__(self, main_window):
@@ -8,17 +11,51 @@ class DatabaseDirManager(QObject):
         self.main_window = main_window
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
 
+    def is_cloud_path(self, path):
+        """Determina se il percorso è cloud"""
+        if not path:
+            return False
+            
+        # Indicatori di servizi cloud
+        cloud_indicators = ["OneDrive", "Google Drive", "GoogleDrive", "Dropbox"]
+        return any(indicator in path for indicator in cloud_indicators)
+
+    def get_base_path(self):
+        """Ottiene il percorso base corrente (locale o cloud)"""
+        cloud_service = self.settings.value("cloud_service", "Locale")
+        if cloud_service == "Locale":
+            return os.path.expanduser("~/Documents/Hemodos")
+        else:
+            cloud_path = self.settings.value("cloud_path", "")
+            if not cloud_path:
+                logger.error("Percorso cloud non configurato")
+                return os.path.expanduser("~/Documents/Hemodos")
+            return os.path.join(cloud_path, "Hemodos")
+
+    def is_local_mode(self):
+        """Verifica se siamo in modalità locale"""
+        return self.settings.value("cloud_service", "Locale") == "Locale"
+
     def setup_local_database(self):
-        """Crea un nuovo database locale"""
+        """Configura un nuovo database locale"""
         try:
             base_path = os.path.expanduser("~/Documents/Hemodos")
             year_path = os.path.join(base_path, str(QDate.currentDate().year()))
             os.makedirs(year_path, exist_ok=True)
+            
+            # Imposta le impostazioni per modalità locale
             self.settings.setValue("cloud_service", "Locale")
+            self.settings.setValue("cloud_path", "")  # Pulisci il percorso cloud
             self.settings.setValue("selected_year", str(QDate.currentDate().year()))
+            
+            # Imposta modalità locale e ferma monitoraggio
+            self.main_window.cloud_manager.set_local_mode()
+            
+            logger.info("Database locale configurato correttamente")
             return True
+            
         except Exception as e:
-            QMessageBox.critical(self.main_window, "Errore", f"Errore nella creazione del database locale: {str(e)}")
+            logger.error(f"Errore nella configurazione del database locale: {str(e)}")
             return False
 
     def open_local_database(self):
@@ -34,15 +71,23 @@ class DatabaseDirManager(QObject):
 
             if os.path.basename(base_path).isdigit():
                 year = os.path.basename(base_path)
+                
+                # Imposta le impostazioni per modalità locale
                 self.settings.setValue("selected_year", year)
                 self.settings.setValue("cloud_service", "Locale")
                 self.settings.setValue("last_database", os.path.join(base_path, f"hemodos_{year}.db"))
+                
+                # Imposta modalità locale e ferma monitoraggio
+                self.main_window.cloud_manager.set_local_mode()
+                
+                logger.info(f"Database locale dell'anno {year} aperto correttamente")
                 return True
             else:
                 QMessageBox.warning(self.main_window, "Errore", "Seleziona una cartella anno valida")
                 return False
+                
         except Exception as e:
-            QMessageBox.critical(self.main_window, "Errore", f"Errore nell'apertura del database: {str(e)}")
+            logger.error(f"Errore nell'apertura del database locale: {str(e)}")
             return False
 
     def setup_cloud_database(self, service_type):

@@ -513,24 +513,21 @@ class DatabaseChangeHandler(FileSystemEventHandler):
 def setup_cloud_monitoring(main_window):
     """Configura il monitoraggio del cloud"""
     try:
-        settings = QSettings('Hemodos', 'DatabaseSettings')
-        service = settings.value("cloud_service", "Locale")
-        
-        if service in ["OneDrive", "Google Drive"]:
-            db_path = get_db_path()
-            watch_dir = os.path.dirname(db_path)
+        # Ottieni il percorso da monitorare
+        cloud_path = main_window.settings.value("cloud_path", "")
+        if not cloud_path:
+            logger.warning("Nessun percorso cloud configurato")
+            return None
             
-            logger.info(f"Avvio monitoraggio cloud per servizio: {service}")
-            monitor_thread = CloudMonitorThread(watch_dir)
-            monitor_thread.file_changed.connect(main_window.reload_database)
-            monitor_thread.start()
-            return monitor_thread
+        # Crea l'observer
+        from watchdog.observers import Observer
+        observer = Observer()
+        observer.start()
+        logger.info(f"Observer avviato per il percorso: {cloud_path}")
+        return observer
             
-        logger.info("Monitoraggio cloud non necessario (modalità locale)")
-        return None
-        
     except Exception as e:
-        logger.error(f"Errore nel setup del monitoraggio cloud: {str(e)}")
+        logger.error(f"Errore nella configurazione del monitoraggio cloud: {str(e)}")
         return None
 
 def get_monthly_stats_db_path(year, month):
