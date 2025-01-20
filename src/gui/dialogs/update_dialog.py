@@ -6,6 +6,7 @@ from PyQt5.QtGui import QIcon
 import os
 from core.updater import UpdateChecker
 from core.logger import logger
+from installer_newver import install_update
 
 class UpdateDialog(HemodosDialog):
     def __init__(self, parent=None):
@@ -52,7 +53,7 @@ class UpdateDialog(HemodosDialog):
 
     def get_current_version(self):
         """Restituisce la versione corrente dell'applicazione"""
-        return "1.0.6"
+        return "1.0.7"
 
     def check_updates_manually(self):
         """Controlla manualmente gli aggiornamenti"""
@@ -91,8 +92,10 @@ class UpdateDialog(HemodosDialog):
             QMessageBox.Yes | QMessageBox.No
         )
         if reply == QMessageBox.Yes:
-            # Avvia l'aggiornamento
-            self.start_update(url)
+            installer = install_update(url, self.parent())
+            if installer:
+                self.progress_bar.show()
+                installer.download_progress.connect(self.progress_bar.setValue)
 
     def show_no_update(self):
         """Mostra il messaggio quando non ci sono aggiornamenti"""
