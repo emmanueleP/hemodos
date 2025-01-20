@@ -27,7 +27,7 @@ class ManualDialog(HemodosDialog):
 
     def create_overview_tab(self):
         content = """
-        <h2>Benvenuto in Hemodos</h2>
+        <h2>Hemodos</h2>
         <p>Hemodos è un software completo per la gestione delle donazioni di sangue, progettato per semplificare 
         il processo di prenotazione e monitoraggio delle donazioni.</p>
 
