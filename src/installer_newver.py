@@ -4,7 +4,33 @@ import requests
 import tempfile
 import subprocess
 from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar, QPushButton
 from core.logger import logger
+
+class DownloadDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Download Aggiornamento")
+        self.setFixedSize(400, 150)
+        
+        layout = QVBoxLayout()
+        
+        # Label informativa
+        self.info_label = QLabel("Download dell'aggiornamento in corso...")
+        layout.addWidget(self.info_label)
+        
+        # Progress bar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(100)
+        layout.addWidget(self.progress_bar)
+        
+        self.setLayout(layout)
+
+    def update_progress(self, value):
+        self.progress_bar.setValue(value)
+        if value == 100:
+            self.info_label.setText("Download completato. L'applicazione verrà riavviata...")
 
 class InstallerThread(QThread):
     download_progress = pyqtSignal(int)  # Segnale per il progresso del download
@@ -19,10 +45,13 @@ class InstallerThread(QThread):
     def run(self):
         """Esegue il download e l'installazione"""
         try:
-            # Crea una directory temporanea per il download
-            temp_dir = tempfile.mkdtemp()
-            installer_path = os.path.join(temp_dir, "Hemodos_Setup.exe")
-
+            # Crea la cartella downloads se non esiste
+            downloads_dir = os.path.expanduser("~/Downloads/Hemodos")
+            os.makedirs(downloads_dir, exist_ok=True)
+            
+            # Percorso del nuovo installer
+            installer_path = os.path.join(downloads_dir, "Hemodos_Setup_New.exe")
+            
             # Download del file
             logger.info(f"Avvio download da: {self.download_url}")
             response = requests.get(self.download_url, stream=True)
@@ -45,28 +74,15 @@ class InstallerThread(QThread):
                         self.download_progress.emit(progress)
 
             logger.info("Download completato")
-
-            # Prepara il comando per l'installazione silenziosa
-            install_cmd = f'"{installer_path}" /VERYSILENT /NORESTART /CLOSEAPPLICATIONS'
-
-            # Crea un file batch per eseguire l'installazione dopo la chiusura dell'app
-            batch_path = os.path.join(temp_dir, "install.bat")
-            with open(batch_path, 'w') as f:
-                f.write(f'''@echo off
-timeout /t 2 /nobreak
-{install_cmd}
-del "{installer_path}"
-del "%~f0"
-''')
-
-            # Avvia il batch file in modo nascosto
-            logger.info("Avvio installazione")
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            subprocess.Popen(['cmd', '/c', batch_path], 
-                           startupinfo=startupinfo,
-                           creationflags=subprocess.CREATE_NO_WINDOW)
-
+            
+            # Attendi un secondo per mostrare il 100%
+            self.sleep(1)
+            
+            # Avvia il nuovo installer
+            logger.info("Avvio nuovo installer")
+            subprocess.Popen([installer_path], 
+                           creationflags=subprocess.CREATE_NEW_CONSOLE)
+            
             # Emetti il segnale di completamento
             self.installation_complete.emit()
 
@@ -84,18 +100,21 @@ del "%~f0"
 def install_update(download_url, parent=None):
     """Funzione principale per gestire l'installazione dell'aggiornamento"""
     try:
+        # Crea il dialog di download
+        download_dialog = DownloadDialog(parent)
+        
         # Crea e avvia il thread di installazione
         installer = InstallerThread(download_url)
         
-        # Connetti i segnali alla finestra principale se presente
-        if parent:
-            installer.download_progress.connect(parent.status_manager.show_message)
-            installer.installation_complete.connect(lambda: parent.close())
-            installer.installation_error.connect(
-                lambda msg: parent.status_manager.show_message(f"Errore: {msg}", 5000)
-            )
+        # Connetti i segnali
+        installer.download_progress.connect(download_dialog.update_progress)
+        installer.installation_complete.connect(parent.close)
+        installer.installation_error.connect(
+            lambda msg: parent.status_manager.show_message(f"Errore: {msg}", 5000)
+        )
         
-        # Avvia il thread
+        # Mostra il dialog e avvia il download
+        download_dialog.show()
         installer.start()
         
         return installer
