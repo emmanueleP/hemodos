@@ -35,7 +35,6 @@ env/
 .vs/
 *.sublime-workspace
 *.sublime-project
-dev.py
 
 # Project specific
 build.sh
