@@ -21,7 +21,6 @@ from core.managers.calendar_manager import CalendarManager
 from core.managers.status_manager import StatusManager
 from core.managers.print_manager import PrintManager
 from core.managers.database_dir_manager import DatabaseDirManager
-from core.managers.cloud_manager import CloudManager
 
 # Importazioni utils
 from core.utils import print_data
@@ -81,7 +80,6 @@ class MainWindow(QMainWindow):
         self.status_manager = StatusManager(self)  # Sposta questo prima
         
         # Poi i manager che dipendono da altri
-        self.cloud_manager = CloudManager(self)
         self.autosave_manager = AutosaveManager(self)
         self.menu_manager = MenuManager(self)
         self.theme_manager = ThemeManager(self)

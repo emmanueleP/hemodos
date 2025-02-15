@@ -42,12 +42,12 @@ class FirstRunDialog(HemodosDialog):
         
         if self.first_run:
             welcome_text.setText(
-                "Benvenuto in Hemodos!\n\n"
                 "Per iniziare, clicca sul manuale o sul database per aprire la configurazione.\n"
-                "Potrai scegliere:\n"
-                "• Il tipo di database (locale o cloud).\n"
+                "Dovrai scegliere:\n"
+                "• Il tipo di database (locale o sincronizzato con Syncthing).\n"
                 "• La struttura per l'anno corrente.\n"
                 "• Le date di donazione.\n\n"
+                "Se hai bisogno di aiuto con Syncthing, puoi aprire il manuale utente qui sotto.\n\n"
                 )
 
         self.content_layout.addWidget(welcome_text)
@@ -135,14 +135,19 @@ class FirstRunDialog(HemodosDialog):
     def closeEvent(self, event):
         """Gestisce la chiusura del dialog"""
         if self.first_run:
-            reply = QMessageBox.question(
-                self,
-                'Conferma uscita',
-                'Vuoi davvero uscire? La configurazione non è completa.',
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            if reply == QMessageBox.Yes:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle('Conferma uscita')
+            msg_box.setText('Vuoi davvero uscire? La configurazione non è completa.')
+            msg_box.setIcon(QMessageBox.Question)
+            
+            # Crea i pulsanti personalizzati
+            yes_button = msg_box.addButton("Sì", QMessageBox.YesRole)
+            no_button = msg_box.addButton("No", QMessageBox.NoRole)
+            msg_box.setDefaultButton(no_button)
+            
+            result = msg_box.exec_()
+            
+            if msg_box.clickedButton() == yes_button:
                 event.accept()
                 sys.exit()
             else:

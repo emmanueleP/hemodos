@@ -26,15 +26,14 @@ class StatusManager:
         
     def update_db_info(self, year, date_str, exists=True):
         """Aggiorna le informazioni del database"""
-        # Determina il tipo di storage
         cloud_service = self.main_window.settings.value("cloud_service", "Locale")
         storage_info = ""
         
         if cloud_service == "Locale":
             storage_info = "(Documenti)"
-        else:
-            storage_info = f"({cloud_service})"
-            
+        elif cloud_service == "Syncthing":
+            storage_info = "(Syncthing)"
+        
         # Costruisci il messaggio
         if exists:
             self.db_label.setText(f"Database: {year} - {date_str} {storage_info}")
@@ -54,7 +53,7 @@ class StatusManager:
 
     def update_cloud_info(self, message):
         """Aggiorna le informazioni del cloud"""
-        if message:  # Se c'è un messaggio cloud
-            self.cloud_label.setText(message)
-        else:  # Se non c'è messaggio (modalità locale)
+        if self.main_window.settings.value("cloud_service") == "Syncthing":
+            self.cloud_label.setText(f"Syncthing: {message}")
+        else:
             self.cloud_label.setText("") 

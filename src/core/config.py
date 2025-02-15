@@ -1,5 +1,7 @@
 import json
 import os
+import platform
+from pathlib import Path
 from core.logger import logger
 from core.constants import DEFAULT_PATHS
 
@@ -86,4 +88,46 @@ class Config:
                 json.dump(self._config, f, indent=4)
             logger.info("Configurazione salvata con successo")
         except Exception as e:
-            logger.error(f"Errore nel salvataggio della configurazione: {str(e)}") 
+            logger.error(f"Errore nel salvataggio della configurazione: {str(e)}")
+
+    @staticmethod
+    def get_app_data_dir():
+        """Restituisce la directory per i dati dell'applicazione"""
+        system = platform.system()
+        if system == "Windows":
+            return os.path.join(os.environ["APPDATA"], "Hemodos")
+        elif system == "Darwin":  # macOS
+            return os.path.join(str(Path.home()), "Library", "Application Support", "Hemodos")
+        else:  # Linux e altri Unix
+            return os.path.join(str(Path.home()), ".hemodos")
+
+    @staticmethod
+    def get_documents_dir():
+        """Restituisce la directory Documenti"""
+        system = platform.system()
+        if system == "Windows":
+            return os.path.join(os.path.expanduser("~"), "Documents")
+        elif system == "Darwin":
+            return os.path.join(str(Path.home()), "Documents")
+        else:
+            return os.path.join(str(Path.home()), "Documents")
+
+    @staticmethod
+    def get_syncthing_config():
+        """Restituisce la configurazione di Syncthing per il sistema"""
+        system = platform.system()
+        if system == "Windows":
+            return {
+                "binary": "syncthing.exe",
+                "config_dir": os.path.join(os.environ["APPDATA"], "Syncthing")
+            }
+        elif system == "Darwin":
+            return {
+                "binary": "syncthing",
+                "config_dir": os.path.join(str(Path.home()), "Library", "Application Support", "Syncthing")
+            }
+        else:
+            return {
+                "binary": "syncthing",
+                "config_dir": os.path.join(str(Path.home()), ".config", "syncthing")
+            } 

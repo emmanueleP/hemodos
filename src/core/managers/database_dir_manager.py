@@ -37,21 +37,14 @@ class DatabaseDirManager(QObject):
         return self.settings.value("cloud_service", "Locale") == "Locale"
 
     def setup_local_database(self):
-        """Configura un nuovo database locale"""
+        """Configura il database locale"""
         try:
             base_path = os.path.expanduser("~/Documents/Hemodos")
-            year_path = os.path.join(base_path, str(QDate.currentDate().year()))
-            os.makedirs(year_path, exist_ok=True)
+            os.makedirs(base_path, exist_ok=True)
             
-            # Imposta le impostazioni per modalità locale
-            self.settings.setValue("cloud_service", "Locale")
-            self.settings.setValue("cloud_path", "")  # Pulisci il percorso cloud
-            self.settings.setValue("selected_year", str(QDate.currentDate().year()))
+            # Salva le impostazioni
+            self.main_window.settings.setValue("cloud_service", "Locale")
             
-            # Imposta modalità locale e ferma monitoraggio
-            self.main_window.cloud_manager.set_local_mode()
-            
-            logger.info("Database locale configurato correttamente")
             return True
             
         except Exception as e:

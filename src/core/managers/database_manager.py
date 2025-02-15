@@ -149,8 +149,8 @@ class DatabaseManager(QObject):
             logger.error(f"Errore nell'aggiornamento delle info del database: {str(e)}")
             self.main_window.status_manager.set_db_error()
 
-    def save_reservations(self, table, date, show_dialog=True):
-        """Salva lo stato corrente delle prenotazioni"""
+    def save_reservations(self, table, date_str, show_message=True):
+        """Salva le prenotazioni nel database"""
         try:
             # Salva ogni riga della tabella
             for row in range(table.rowCount()):
@@ -161,32 +161,34 @@ class DatabaseManager(QObject):
                 stato = table.cellWidget(row, 4).currentText()
                 
                 if name.strip() or surname.strip():
-                    add_reservation(date, time, name, surname, first_donation)
-                    save_donation_status(date, time, stato)
+                    add_reservation(date_str, time, name, surname, first_donation)
+                    save_donation_status(date_str, time, stato)
             
             # Controlla la dimensione del database e fai vacuum se necessario
-            self._check_and_vacuum(date)
+            self._check_and_vacuum(date_str)
             
-            # Aggiorna l'ultimo salvataggio nella status bar
-            current_time = datetime.now().strftime("%H:%M:%S")
-            self.main_window.settings.setValue("last_save_time", current_time)
-            self.main_window.status_manager.update_last_save_info()
+            # Aggiorna l'ultimo salvataggio
+            self.main_window.settings.setValue(
+                "last_save_time", 
+                datetime.now().strftime("%d/%m/%Y alle %H:%M:%S")
+            )
             
-            if show_dialog:
+            if show_message:
                 self.main_window.status_manager.show_message("Salvataggio completato", 3000)
             
             # Aggiungi alla cronologia
-            year = QDate.fromString(date, "yyyy-MM-dd").year()
+            year = QDate.fromString(date_str, "yyyy-MM-dd").year()
             add_to_history(
                 year,
                 "Salvataggio prenotazioni",
-                f"Salvate prenotazioni per la data {date}"
+                f"Salvate prenotazioni per la data {date_str}"
             )
             
             return True
             
         except Exception as e:
-            return self.main_window._handle_error("il salvataggio", e, show_dialog)
+            self.main_window._handle_error("il salvataggio", e)
+            return False
 
     def _check_and_vacuum(self, date):
         """Controlla la dimensione del database e esegue VACUUM se necessario"""
