@@ -83,9 +83,9 @@ class SettingsDialog(HemodosDialog):
         years_tab = self.init_years_tab()
         self.tab_widget.addTab(years_tab, "Gestione Anni")
         
-        # Sync tab (ex Cloud Storage)
+        # Syncthing tab
         sync_tab = self.init_cloud_tab()
-        self.tab_widget.addTab(sync_tab, "Sync")
+        self.tab_widget.addTab(sync_tab, "Syncthing")
         
         # Appearance tab
         appearance_tab = self.init_appearance_tab()

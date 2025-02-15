@@ -57,7 +57,7 @@ class WelcomeDialog(HemodosDialog):
         
 
         # Copyright
-        copyright_label = QLabel("© 2025 Emmanuele Pani. Under MIT License.")
+        copyright_label = QLabel("© 2025 Emmanuele Pani.")
         copyright_label.setStyleSheet("""
             QLabel {
                 color: #666666;
