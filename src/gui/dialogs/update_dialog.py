@@ -53,7 +53,7 @@ class UpdateDialog(HemodosDialog):
 
     def get_current_version(self):
         """Restituisce la versione corrente dell'applicazione"""
-        return "1.0.8"
+        return "1.0.9"
 
     def check_updates_manually(self):
         """Controlla manualmente gli aggiornamenti"""

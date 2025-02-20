@@ -106,9 +106,7 @@ class InfoDialog(HemodosDialog):
             
             <h3>System requirements:</h3>
             <ul>
-                <li>Windows 10 or higher</li>
-                <li>Disk space: ~100MB</li>
-                <li>RAM minimum: ~2GB</li>          
+                <li>Windows 10 or higher - macOS 11 or higher with Intel or Apple Silicon</li>        
             </ul>
             
             <h3>Developed by:</h3>
@@ -125,12 +123,12 @@ class InfoDialog(HemodosDialog):
             </ul>
 
             <h3>License:</h3>
-            <p>© 2025 Emmanuele Pani. Under MIT License.</p>
+            <p>© 2025 Emmanuele Pani.</p>
             <p>This software includes Syncthing, distributed under the Mozilla Public License 2.0.</p>
             <a href='https://github.com/emmanueleP/Hemodos'>GitHub</a>
             
             <h3>Version:</h3>
-            <p>1.0.8</p>
+            <p>1.0.9</p>
         """)
         main_layout.addWidget(info_text)
         self.content_layout.addWidget(main_container)
