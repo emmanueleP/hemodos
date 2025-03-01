@@ -6,6 +6,7 @@ import time
 import xml.etree.ElementTree as ET
 from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 from core.logger import logger
+import platform
 
 class SyncthingManager(QObject):
     sync_status_changed = pyqtSignal(str)  # Segnale per lo stato della sincronizzazione
@@ -50,9 +51,20 @@ class SyncthingManager(QObject):
         try:
             # Determina il percorso dell'eseguibile Syncthing
             if getattr(sys, 'frozen', False):
-                syncthing_path = os.path.join(os.path.dirname(sys.executable), "syncthing.exe")
+                # Se l'app è compilata, usa il binario incluso
+                base_path = os.path.dirname(sys.executable)
+                if platform.system() == "Windows":
+                    syncthing_path = os.path.join(base_path, "syncthing.exe")
+                else:
+                    syncthing_path = os.path.join(base_path, "syncthing")
             else:
-                syncthing_path = "syncthing.exe"  # Assume che sia nel PATH
+                # In sviluppo, usa il binario dalla cartella syncthing
+                if platform.system() == "Windows":
+                    syncthing_path = "syncthing/windows/syncthing.exe"
+                elif platform.system() == "Darwin":
+                    syncthing_path = "syncthing/macos/syncthing"
+                else:
+                    syncthing_path = "syncthing/linux/syncthing"
             
             # Avvia Syncthing in background
             self.syncthing_process = subprocess.Popen(
