@@ -54,7 +54,11 @@ a = Analysis(
         'win32security',
         'win32con',
         'win32event',
-        'win32process'
+        'win32process',
+        'cryptography',
+        'cryptography.hazmat.primitives',
+        'cryptography.hazmat.primitives.kdf.pbkdf2',
+        'cryptography.fernet'
     ],
     hookspath=[],
     hooksconfig={},

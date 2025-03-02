@@ -5,4 +5,5 @@ sqlite3>=3.35.0
 python-dateutil>=2.8.2
 pillow>=8.0.0
 requests>=2.26.0
+cryptography>=3.3.2
 pywin32>=228; platform_system == "Windows" 
