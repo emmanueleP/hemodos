@@ -130,7 +130,16 @@ class FirstRunDialog(HemodosDialog):
         from gui.dialogs.database_dialog import ConfigDatabaseDialog
         database_dialog = ConfigDatabaseDialog(self.parent())
         if database_dialog.exec_() == QDialog.Accepted:
-            self.accept()  # Chiudi il FirstRunDialog se il database è configurato
+            # Imposta il flag per indicare che il database è già stato configurato
+            self.settings.setValue("database_configured", True)
+            
+            # Mostra il WelcomeDialog per il login dell'admin
+            from gui.dialogs.welcome_dialog import WelcomeDialog
+            welcome = WelcomeDialog(self.parent())
+            if welcome.exec_() == QDialog.Accepted:
+                self.accept()  # Chiudi il FirstRunDialog se il login è avvenuto con successo
+            else:
+                sys.exit(0)  # Esci se l'utente annulla il login
 
     def closeEvent(self, event):
         """Gestisce la chiusura del dialog"""

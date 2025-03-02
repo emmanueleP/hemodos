@@ -9,6 +9,7 @@ from PyQt5.QtCore import Qt, QSettings, QDate, QTimer, QTime, QSize
 from PyQt5.QtGui import QIcon, QKeySequence
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 import sys
+import os
 
 # Importazioni managers
 from core.managers.year_manager import YearManager
@@ -57,9 +58,41 @@ class MainWindow(QMainWindow):
 
         # Controlla se è il primo avvio
         first_run = self.settings.value("first_run", True, type=bool)
+        if first_run:
+            # Mostra il FirstRunDialog
+            first_run_dialog = FirstRunDialog(self)
+            if first_run_dialog.exec_() != QDialog.Accepted:
+                sys.exit(0)
+            
+            # Mostra il ConfigDatabaseDialog solo se non è già stato configurato
+            if not self.settings.value("database_configured", False, type=bool):
+                config_dialog = ConfigDatabaseDialog(self)
+                if config_dialog.exec_() != QDialog.Accepted:
+                    sys.exit(0)
+                
+            # Imposta first_run a False solo dopo la configurazione completata
+            self.settings.setValue("first_run", False)
+            # Rimuovi il flag di configurazione del database
+            self.settings.remove("database_configured")
+            self.settings.sync()
+        else:
+            # Mostra il WelcomeDialog solo se non c'è un utente già loggato
+            if not self.settings.value("current_user"):
+                welcome = WelcomeDialog(self)
+                if welcome.exec_() != QDialog.Accepted:
+                    # Se l'utente chiude il welcome dialog, chiudi l'applicazione
+                    sys.exit(0)
+            
+        # Ottieni l'utente corrente e il suo database
+        self.current_user = self.settings.value("current_user")
+        self.current_user_db = self.settings.value("current_user_db")
+        
+        if not self.current_user or not self.current_user_db:
+            QMessageBox.critical(self, "Errore", "Errore nel caricamento delle informazioni utente")
+            sys.exit(1)
         
         # Continua con l'inizializzazione normale
-        self.setWindowTitle(self.WINDOW_TITLE)
+        self.setWindowTitle(f"{self.WINDOW_TITLE} - {self.current_user}")
         self.resize(*self.DEFAULT_WINDOW_SIZE)
         self.setMinimumSize(*self.MIN_WINDOW_SIZE)
 
@@ -75,20 +108,38 @@ class MainWindow(QMainWindow):
 
     def _init_managers(self):
         """Inizializza i manager dell'applicazione"""
-        # Prima i manager base
-        self.database_manager = DatabaseManager(self)
-        self.database_dir_manager = DatabaseDirManager(self)
-        self.status_manager = StatusManager(self)  # Sposta questo prima
-        
-        # Poi i manager che dipendono da altri
-        self.cloud_manager = CloudManager(self)
-        self.autosave_manager = AutosaveManager(self)
-        self.menu_manager = MenuManager(self)
-        self.theme_manager = ThemeManager(self)
-        self.export_manager = ExportManager(self)
-        self.calendar_manager = CalendarManager(self)
-        self.year_manager = YearManager()
-        self.print_manager = PrintManager(self)
+        try:
+            # Prima i manager base
+            self.database_manager = DatabaseManager(self)
+            self.database_dir_manager = DatabaseDirManager(self)
+            self.status_manager = StatusManager(self)
+            
+            # Poi i manager che dipendono da altri
+            self.cloud_manager = CloudManager(self)
+            
+            # Configura il cloud manager con il percorso dell'utente
+            if self.current_user_db:
+                cloud_path = os.path.dirname(self.current_user_db)
+                self.cloud_manager.setup_cloud_sync(cloud_path)
+                self.cloud_manager.setup_monitoring()
+            
+            # Inizializza gli altri manager
+            self.autosave_manager = AutosaveManager(self)
+            self.menu_manager = MenuManager(self)
+            self.theme_manager = ThemeManager(self)
+            self.export_manager = ExportManager(self)
+            self.calendar_manager = CalendarManager(self)
+            self.year_manager = YearManager()
+            self.print_manager = PrintManager(self)
+
+            # Imposta il percorso del database dell'utente corrente
+            self.settings.setValue("cloud_path", os.path.dirname(self.current_user_db))
+            self.settings.setValue("database_path", self.current_user_db)
+            
+        except Exception as e:
+            logger.error(f"Errore nell'inizializzazione dei manager: {str(e)}")
+            QMessageBox.critical(self, "Errore", f"Errore nell'inizializzazione dei manager: {str(e)}")
+            sys.exit(1)
 
     def _init_ui_components(self):
         """Inizializza i componenti dell'interfaccia utente"""

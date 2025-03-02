@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QPushButton,
 from PyQt5.QtCore import QSettings, Qt, QDate, QTimer
 from PyQt5.QtGui import QIcon, QPixmap
 import os
+import platform
 from core.database import get_db_path
 from core.delete_db_logic import get_base_path
 from core.logger import logger
@@ -121,23 +122,26 @@ class ConfigDatabaseDialog(HemodosDialog):
     def check_and_accept(self):
         """Verifica e accetta il dialog"""
         try:
-            if self.selected_option == 3:  # Cloud
-                cloud_path = self.settings.value("cloud_path", "")
-                service_name = self.settings.value("cloud_service", "")
-                
-                # Configura la sincronizzazione cloud
-                if self.main_window.cloud_manager.setup_cloud_sync(cloud_path):
-                    # Inizializza il monitoraggio
-                    self.main_window.cloud_manager.setup_monitoring()
-                    self.accept()
-                else:
-                    QMessageBox.critical(
-                        self,
-                        "Errore",
-                        "Impossibile configurare la sincronizzazione cloud"
-                    )
-            else:
+            # Salva le impostazioni prima di chiudere
+            self.settings.sync()
+            
+            # Se è il primo avvio, non tentare di configurare il cloud_manager
+            if self.settings.value("first_run", True, type=bool):
                 self.accept()
+                return
+                
+            # Altrimenti procedi con la configurazione normale
+            cloud_path = self.settings.value("cloud_path", "")
+            service_name = self.settings.value("cloud_service", "")
+            
+            if cloud_path and os.path.exists(cloud_path):
+                self.accept()
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Errore",
+                    "Il percorso selezionato non è valido o non esiste"
+                )
                 
         except Exception as e:
             logger.error(f"Errore nella verifica finale: {str(e)}")
@@ -201,41 +205,69 @@ class ConfigDatabaseDialog(HemodosDialog):
             logger.error(f"Errore nella chiusura del dialog: {str(e)}")
             event.accept()
 
+    def get_cloud_paths(self):
+        """Restituisce i percorsi dei servizi cloud per il sistema operativo corrente"""
+        system = platform.system()
+        username = os.getlogin()
+        home = os.path.expanduser("~")
+        
+        paths = {
+            "OneDrive": [],
+            "Google Drive": [],
+            "iCloud": []
+        }
+        
+        if system == "Windows":
+            paths["OneDrive"] = [
+                os.path.join(home, "OneDrive"),
+                os.path.join(home, "OneDrive - Personal"),
+                f"C:\\Users\\{username}\\OneDrive"
+            ]
+            paths["Google Drive"] = [
+                os.path.join(home, "Google Drive"),
+                os.path.join(home, "GoogleDrive"),
+                f"C:\\Users\\{username}\\Google Drive",
+                f"C:\\Users\\{username}\\GoogleDrive"
+            ]
+            paths["iCloud"] = [
+                os.path.join(home, "iCloudDrive"),
+                f"C:\\Users\\{username}\\iCloudDrive"
+            ]
+        elif system == "Darwin":  # macOS
+            paths["OneDrive"] = [
+                os.path.join(home, "OneDrive"),
+                os.path.join(home, "Library", "CloudStorage", "OneDrive-Personal")
+            ]
+            paths["Google Drive"] = [
+                os.path.join(home, "Google Drive"),
+                os.path.join(home, "Library", "CloudStorage", "GoogleDrive")
+            ]
+            paths["iCloud"] = [
+                os.path.join(home, "Library", "Mobile Documents", "com~apple~CloudDocs")
+            ]
+        
+        return paths
+
     def _handle_cloud_database(self):
         """Gestisce la selezione del database cloud"""
         try:
             # Trova i servizi cloud installati
             available_services = []
+            cloud_paths = self.get_cloud_paths()
             
-            # Controlla OneDrive
-            onedrive_paths = [
-                os.path.expanduser("~/OneDrive"),
-                os.path.expanduser("~/OneDrive - Personal"),
-                "C:/Users/" + os.getlogin() + "/OneDrive",
-            ]
-            for path in onedrive_paths:
-                if os.path.exists(path):
-                    available_services.append(("OneDrive", path))
-                    break
-            
-            # Controlla Google Drive
-            gdrive_paths = [
-                os.path.expanduser("~/Google Drive"),
-                os.path.expanduser("~/GoogleDrive"),
-                "C:/Users/" + os.getlogin() + "/Google Drive",
-                "C:/Users/" + os.getlogin() + "/GoogleDrive",
-            ]
-            for path in gdrive_paths:
-                if os.path.exists(path):
-                    available_services.append(("Google Drive", path))
-                    break
+            # Controlla ogni servizio
+            for service_name, paths in cloud_paths.items():
+                for path in paths:
+                    if os.path.exists(path):
+                        available_services.append((service_name, path))
+                        break
             
             if not available_services:
                 QMessageBox.warning(
                     self,
                     "Nessun servizio cloud",
                     "Nessun servizio cloud supportato trovato.\n"
-                    "Installa OneDrive o Google Drive per utilizzare questa funzionalità."
+                    "Installa OneDrive, Google Drive o iCloud per utilizzare questa funzionalità."
                 )
                 return
             
@@ -253,10 +285,14 @@ class ConfigDatabaseDialog(HemodosDialog):
                 service_name = selected_action.text()
                 cloud_path = selected_action.data()
                 
+                # Crea la directory Hemodos nel percorso cloud se non esiste
+                hemodos_cloud_path = os.path.join(cloud_path, "Hemodos")
+                os.makedirs(hemodos_cloud_path, exist_ok=True)
+                
                 # Salva le impostazioni
                 self.settings.setValue("cloud_service", service_name)
-                self.settings.setValue("cloud_path", cloud_path)
-                self.selected_option = 3  # Imposta l'opzione cloud
+                self.settings.setValue("cloud_path", hemodos_cloud_path)
+                self.selected_option = 3
                 
                 # Aggiorna il testo del pulsante
                 self.cloud_button.setText(f"Database su cloud (Scelto: {service_name})")

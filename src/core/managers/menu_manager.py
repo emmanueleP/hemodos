@@ -2,6 +2,8 @@ from PyQt5.QtWidgets import QMenuBar, QMenu, QAction, QStatusBar, QLabel, QMessa
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 from gui.dialogs.daily_reservations_dialog import DailyReservationsDialog
+import os
+import json
 
 class MenuManager:
     def __init__(self, main_window):
@@ -76,6 +78,20 @@ class MenuManager:
         preferences_action = QAction(QIcon('src/assets/cogwheel.png'), 'Preferenze', main_window)
         preferences_action.triggered.connect(main_window.show_settings)
         settings_menu.addAction(preferences_action)
+        
+        # HemodosAdmin action (solo per admin)
+        admin_action = QAction(QIcon('src/assets/cogwheel.png'), 'HemodosAdmin', main_window)
+        admin_action.triggered.connect(self._show_admin)
+        settings_menu.addAction(admin_action)
+        
+        # Verifica se l'utente è admin
+        users_file = os.path.join(main_window.settings.value("cloud_path", ""), ".hemodos_users")
+        if os.path.exists(users_file):
+            with open(users_file, 'r') as f:
+                users = json.load(f)
+                current_user = main_window.settings.value("current_user")
+                if current_user not in users or not users[current_user].get('is_admin', False):
+                    admin_action.setEnabled(False)
 
         # Menu Info
         info_menu = menubar.addMenu('Info')
@@ -95,7 +111,7 @@ class MenuManager:
         # About action
         about_action = QAction('Informazioni su Hemodos', main_window)
         about_action.triggered.connect(main_window.show_info)
-        info_menu.addAction(about_action)      
+        info_menu.addAction(about_action)
 
     def _save_current_reservations(self):
         """Salva le prenotazioni della finestra corrente"""
@@ -125,4 +141,10 @@ class MenuManager:
         """Mostra le informazioni"""
         from gui.dialogs.info_dialog import InfoDialog
         dialog = InfoDialog(self.main_window)
+        dialog.exec_()
+
+    def _show_admin(self):
+        """Mostra la finestra di amministrazione"""
+        from gui.admin.hemodos_admin import HemodosAdmin
+        dialog = HemodosAdmin(self.main_window)
         dialog.exec_()
