@@ -28,17 +28,13 @@ class ConfigDatabaseDialog(HemodosDialog):
 
         # Logo container
         logo_container = QWidget()
-        logo_container.setFixedHeight(220)  # Altezza fissa per il logo
+        logo_container.setFixedHeight(220)
         logo_layout = QVBoxLayout(logo_container)
-        logo_layout.setContentsMargins(0, 0, 0, 0)  # Rimuovi i margini
+        logo_layout.setContentsMargins(0, 0, 0, 0)
         
         # Aggiungi il logo
         logo_label = QLabel()
-        # Usa il percorso relativo alla directory dell'applicazione
         logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "logo_info.png")
-        # Prova percorsi alternativi se il primo fallisce
-        if not os.path.exists(logo_path):
-            logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo_info.png")
         if not os.path.exists(logo_path):
             logo_path = "src/assets/logo_info.png"
 
@@ -47,76 +43,124 @@ class ConfigDatabaseDialog(HemodosDialog):
             scaled_pixmap = pixmap.scaled(200, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             logo_label.setPixmap(scaled_pixmap)
             logo_label.setAlignment(Qt.AlignCenter)
-            print(f"Logo caricato con successo da: {logo_path}")
         else:
             logo_label.setText("Logo non trovato")
             logo_label.setStyleSheet("QLabel { color: red; }")
-            print(f"Logo non trovato. Percorsi tentati:")
-            print(f"1. {os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'logo_info.png')}")
-            print(f"2. {os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'logo_info.png')}")
-            print(f"3. assets/logo_info.png")
-            print(f"Directory corrente: {os.getcwd()}")
         
         logo_layout.addWidget(logo_label)
         main_layout.addWidget(logo_container)
 
-        # Resto del contenuto
+        # Testo introduttivo
         welcome_label = QLabel("Scegli come vuoi gestire il database:")
         welcome_label.setStyleSheet("font-size: 14px;")
         main_layout.addWidget(welcome_label)
 
         # Gruppo opzioni database
-        options_group = QGroupBox("Seleziona tipo di database")
+        options_group = QGroupBox("Tipo di Database")
         options_layout = QVBoxLayout()
         
-        # Opzioni
-        self.local_new_button = QPushButton("Nuovo database locale")
+        # Opzione Locale
+        local_group = QGroupBox("Database Locale")
+        local_layout = QVBoxLayout()
+        
+        self.local_new_button = QPushButton("Nuovo database")
         self.local_new_button.clicked.connect(lambda: self.handle_selection(1))
-        options_layout.addWidget(self.local_new_button)
+        self.local_new_button.setStyleSheet("""
+            QPushButton {
+                padding: 10px;
+                background-color: #004d4d;
+                color: white;
+                border: none;
+                padding: 5px 15px;
+                border-radius: 3px;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background-color: #006666;
+            }
+        """)
+        local_layout.addWidget(self.local_new_button)
         
-        self.local_existing_button = QPushButton("Database locale esistente")
+        self.local_existing_button = QPushButton("Database esistente")
         self.local_existing_button.clicked.connect(lambda: self.handle_selection(2))
-        options_layout.addWidget(self.local_existing_button)
+        self.local_existing_button.setStyleSheet("""
+            QPushButton {
+                padding: 10px;
+                background-color: #004d4d;
+                color: white;
+                border: none;
+                padding: 5px 15px;
+                border-radius: 3px;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background-color: #006666;
+            }
+        """)
+        local_layout.addWidget(self.local_existing_button)
         
-        self.cloud_button = QPushButton("Database su cloud")
+        local_group.setLayout(local_layout)
+        options_layout.addWidget(local_group)
         
-        # Controlla se c'è già un servizio cloud configurato
-        cloud_service = self.settings.value("cloud_service", "")
-        if cloud_service and cloud_service != "Locale":
-            self.cloud_button.setText(f"Database su cloud (Scelto: {cloud_service})")
+        # Opzione Syncthing
+        syncthing_group = QGroupBox("Database Sincronizzato (Syncthing)")
+        syncthing_layout = QVBoxLayout()
+        
+        self.syncthing_button = QPushButton("Configura Syncthing")
+        self.syncthing_button.clicked.connect(self._handle_cloud_database)
+        self.syncthing_button.setStyleSheet("""
+            QPushButton {
+                padding: 10px;
+                background-color: #004d4d;
+                color: white;
+                border: none;
+                padding: 5px 15px;
+                border-radius: 3px;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background-color: #006666;
+            }
+        """)
+        
+        # Controlla se Syncthing è già configurato
+        if self.settings.value("cloud_service") == "Syncthing":
+            self.syncthing_button.setText("Database su Syncthing (Configurato)")
             self.selected_option = 3
             ok_button = self.buttons_layout.itemAt(1).widget()
             ok_button.setEnabled(True)
             
-        self.cloud_button.clicked.connect(self._handle_cloud_database)
-        options_layout.addWidget(self.cloud_button)
+        syncthing_layout.addWidget(self.syncthing_button)
+        
+        # Aggiungi descrizione Syncthing
+        syncthing_desc = QLabel(
+            "Syncthing permette di sincronizzare automaticamente\n"
+            "il database tra più dispositivi in modo sicuro."
+        )
+        syncthing_desc.setStyleSheet("color: #666; font-size: 11px;")
+        syncthing_desc.setAlignment(Qt.AlignCenter)
+        syncthing_layout.addWidget(syncthing_desc)
+        
+        syncthing_group.setLayout(syncthing_layout)
+        options_layout.addWidget(syncthing_group)
         
         options_group.setLayout(options_layout)
         main_layout.addWidget(options_group)
 
-        # Aggiungi il copyright
+        # Copyright
         copyright_label = QLabel("© 2025 Emmanuele Pani. Under MIT License.")
-        copyright_label.setStyleSheet("""
-            QLabel {
-                color: #666666;
-                font-size: 11px;
-                padding: 10px;
-            }
-        """)
+        copyright_label.setStyleSheet("color: #666666; font-size: 11px; padding: 10px;")
         copyright_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(copyright_label)
 
-        # Aggiungi uno spazio elastico prima dei pulsanti
         main_layout.addStretch()
-
         self.content_layout.addWidget(main_container)
 
         # Modifica i pulsanti
         self.buttons_layout.itemAt(1).widget().setText("Avanti")  
         self.buttons_layout.itemAt(2).widget().setText("Esci")    
-        # Collega il pulsante Avanti alla verifica
         ok_button = self.buttons_layout.itemAt(1).widget()
-        ok_button.clicked.disconnect()  # Disconnetti il vecchio segnale
+        ok_button.clicked.disconnect()
         ok_button.clicked.connect(self.check_and_accept)
 
     def check_and_accept(self):
@@ -251,6 +295,7 @@ class ConfigDatabaseDialog(HemodosDialog):
     def _handle_cloud_database(self):
         """Gestisce la selezione del database cloud"""
         try:
+<<<<<<< HEAD
             # Trova i servizi cloud installati
             available_services = []
             cloud_paths = self.get_cloud_paths()
@@ -293,13 +338,37 @@ class ConfigDatabaseDialog(HemodosDialog):
                 self.settings.setValue("cloud_service", service_name)
                 self.settings.setValue("cloud_path", hemodos_cloud_path)
                 self.selected_option = 3
+=======
+            # Inizializza Syncthing
+            if not hasattr(self.main_window, 'syncthing_manager'):
+                from core.managers.syncthing_manager import SyncthingManager
+                self.main_window.syncthing_manager = SyncthingManager(self.main_window)
+            
+            # Configura Syncthing
+            if self.main_window.syncthing_manager.setup_syncthing():
+                # Salva le impostazioni
+                self.settings.setValue("cloud_service", "Syncthing")
+                self.selected_option = 3  # Imposta l'opzione cloud
+>>>>>>> e96e87b7ca2acbc94ed418b25497070b11d1b288
                 
                 # Aggiorna il testo del pulsante
-                self.cloud_button.setText(f"Database su cloud (Scelto: {service_name})")
+                self.syncthing_button.setText("Database su Syncthing (Configurato)")
                 
                 # Abilita il pulsante Avanti
                 ok_button = self.buttons_layout.itemAt(1).widget()
                 ok_button.setEnabled(True)
+                
+                # Mostra messaggio di successo
+                self.main_window.status_manager.show_message(
+                    "Syncthing configurato correttamente", 
+                    3000
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Errore",
+                    "Impossibile configurare Syncthing.\nVerifica che sia installato correttamente."
+                )
                 
         except Exception as e:
             logger.error(f"Errore nella configurazione cloud: {str(e)}")

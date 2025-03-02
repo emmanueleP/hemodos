@@ -84,7 +84,7 @@ class InfoDialog(HemodosDialog):
                 <li>Prenotazioni per fasce orarie (7:50 - 12:10)</li>
                 <li>Gestione automatica prime donazioni (disabilitate dopo le 10:00)</li>
                 <li>Tracciamento stato donazioni (effettuata, non effettuata, ecc.)</li>
-                <li>Supporto per salvataggio su cloud (OneDrive, Google Drive)</li>
+                <li>Sincronizzazione sicura tra dispositivi tramite Syncthing</li>
                 <li>Salvataggio automatico configurabile</li>
                 <li>Esportazione dati in formato Word (.docx)</li>
                 <li>Stampa documenti con layout personalizzato</li>
@@ -98,7 +98,7 @@ class InfoDialog(HemodosDialog):
             <ul>
                 <li>Menu contestuale sul calendario per accesso rapido</li>
                 <li>Gestione orari personalizzabili a intervalli di 5 minuti</li>
-                <li>Sincronizzazione automatica con servizi cloud</li>
+                <li>Sincronizzazione peer-to-peer sicura e privata</li>
                 <li>Backup automatico dei dati</li>
                 <li>Gestione separata delle date di donazione</li>
                 <li>Interfaccia intuitiva e responsive</li>
@@ -106,21 +106,29 @@ class InfoDialog(HemodosDialog):
             
             <h3>System requirements:</h3>
             <ul>
-                <li>Windows 10 or higher</li>
-                <li>Disk space: ~100MB</li>
-                <li>RAM minimum: ~2GB</li>          
+                <li>Windows 10 or higher - macOS 11 or higher with Intel or Apple Silicon</li>        
             </ul>
             
             <h3>Developed by:</h3>
             <p>Emmanuele Pani<br>
             <p>To report bugs or suggest improvements, please use the GitHub repository.</p>
             
+            <h3>Technologies:</h3>
+            <ul>
+                <li>Python 3.11</li>
+                <li>PyQt5</li>
+                <li>SQLite3</li>
+                <li>python-docx</li>
+                <li>Syncthing</li>
+            </ul>
+
             <h3>License:</h3>
-            <p>© 2025 Emmanuele Pani. Under MIT License.</p>
+            <p>© 2025 Emmanuele Pani.</p>
+            <p>This software includes Syncthing, distributed under the Mozilla Public License 2.0.</p>
             <a href='https://github.com/emmanueleP/Hemodos'>GitHub</a>
             
             <h3>Version:</h3>
-            <p>1.0.8</p>
+            <p>1.0.9</p>
         """)
         main_layout.addWidget(info_text)
         self.content_layout.addWidget(main_container)

@@ -146,8 +146,19 @@ class WelcomeDialog(HemodosDialog):
         main_layout.addWidget(buttons_container)
 
         # Copyright
+<<<<<<< HEAD
         copyright_label = QLabel("© 2025 Emmanuele Pani. Under MIT License.")
         copyright_label.setStyleSheet("color: #666666; font-size: 11px; padding: 10px;")
+=======
+        copyright_label = QLabel("© 2025 Emmanuele Pani.")
+        copyright_label.setStyleSheet("""
+            QLabel {
+                color: #666666;
+                font-size: 11px;
+                padding: 10px;
+            }
+        """)
+>>>>>>> e96e87b7ca2acbc94ed418b25497070b11d1b288
         copyright_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(copyright_label)
 

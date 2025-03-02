@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel,
                             QTabWidget, QWidget, QGroupBox, QFormLayout,
                             QCalendarWidget, QListWidget, QListWidgetItem,
                             QCheckBox, QSpinBox, QMessageBox, QTextBrowser,
-                            QProgressDialog, QMainWindow)
+                            QProgressDialog, QMainWindow, QInputDialog)
 from PyQt5.QtCore import QSettings, QDate, Qt, QRegExp
 from PyQt5.QtGui import QRegExpValidator, QTextCharFormat, QColor, QPixmap
 from core.database import (add_donation_date, get_donation_dates, delete_donation_date, 
@@ -17,6 +17,7 @@ from core.managers.year_manager import YearManager
 from core.logger import logger
 from core.themes import THEMES
 from core.delete_db_logic import get_base_path
+from PyQt5.QtWidgets import QApplication
 
 class SettingsDialog(HemodosDialog):
     def __init__(self, parent=None):
@@ -82,9 +83,9 @@ class SettingsDialog(HemodosDialog):
         years_tab = self.init_years_tab()
         self.tab_widget.addTab(years_tab, "Gestione Anni")
         
-        # Cloud Storage tab
-        cloud_tab = self.init_cloud_tab()
-        self.tab_widget.addTab(cloud_tab, "Cloud Storage")
+        # Syncthing tab
+        sync_tab = self.init_cloud_tab()
+        self.tab_widget.addTab(sync_tab, "Syncthing")
         
         # Appearance tab
         appearance_tab = self.init_appearance_tab()
@@ -100,8 +101,9 @@ class SettingsDialog(HemodosDialog):
 
         self.content_layout.addWidget(self.tab_widget)
         
-        # Initialize path based on current service
-        self.on_service_changed(self.cloud_service.currentText())
+        # Aggiorna lo stato di Syncthing se è configurato
+        if self.settings.value("cloud_service") == "Syncthing":
+            self._update_syncthing_status()
 
     def init_appearance_tab(self):
         appearance_tab = QWidget()
@@ -151,44 +153,154 @@ class SettingsDialog(HemodosDialog):
             self.parent.apply_theme()
 
     def init_cloud_tab(self):
+        """Inizializza la tab per la sincronizzazione"""
         cloud_tab = QWidget()
         layout = QVBoxLayout()
         
-        # Cloud Service Selection
-        service_group = QGroupBox("Servizio Cloud")
-        service_layout = QFormLayout()
+        # Gruppo Syncthing
+        syncthing_group = QGroupBox("Sincronizzazione (Syncthing)")
+        syncthing_layout = QVBoxLayout()
         
-        self.cloud_service = QComboBox()
-        self.cloud_service.addItems(["Locale", "OneDrive", "Google Drive"])
-        self.cloud_service.setCurrentText(self.settings.value("cloud_service", "Locale"))
-        self.cloud_service.currentTextChanged.connect(self.on_service_changed)
-        service_layout.addRow("Seleziona servizio:", self.cloud_service)
+        # Status
+        status_layout = QHBoxLayout()
+        status_label = QLabel("Stato:")
+        self.status_value = QLabel("Verificando...")
+        status_layout.addWidget(status_label)
+        status_layout.addWidget(self.status_value)
+        status_layout.addStretch()
+        syncthing_layout.addLayout(status_layout)
         
-        service_group.setLayout(service_layout)
-        layout.addWidget(service_group)
+        # ID Dispositivo
+        device_layout = QHBoxLayout()
+        device_label = QLabel("ID Dispositivo:")
+        self.device_id = QLineEdit()
+        self.device_id.setReadOnly(True)
+        copy_button = QPushButton("Copia")
+        copy_button.clicked.connect(lambda: self._copy_to_clipboard(self.device_id.text()))
+        copy_button.setStyleSheet(self.button_style)
+        device_layout.addWidget(device_label)
+        device_layout.addWidget(self.device_id)
+        device_layout.addWidget(copy_button)
+        syncthing_layout.addLayout(device_layout)
         
-        # Cloud Path Selection
-        path_group = QGroupBox("Percorso Cartella")
-        path_layout = QHBoxLayout()
+        # Cartella sincronizzata
+        folder_layout = QHBoxLayout()
+        folder_label = QLabel("Cartella:")
+        self.folder_path = QLineEdit()
+        self.folder_path.setReadOnly(True)
+        folder_layout.addWidget(folder_label)
+        folder_layout.addWidget(self.folder_path)
+        syncthing_layout.addLayout(folder_layout)
         
-        self.path_edit = QLineEdit()
-        self.path_edit.setText(self.settings.value("cloud_path", ""))
-        path_layout.addWidget(self.path_edit)
+        # Pulsanti azione
+        button_layout = QHBoxLayout()
         
-        browse_btn = QPushButton("Sfoglia")
-        browse_btn.clicked.connect(self.browse_path)
-        path_layout.addWidget(browse_btn)
+        # Aggiungi dispositivo
+        add_device_btn = QPushButton("Aggiungi Dispositivo")
+        add_device_btn.clicked.connect(self._add_device)
+        add_device_btn.setStyleSheet(self.button_style)
+        button_layout.addWidget(add_device_btn)
         
-        path_group.setLayout(path_layout)
-        layout.addWidget(path_group)
+        # Apri interfaccia web
+        web_ui_btn = QPushButton("Apri Interfaccia Web")
+        web_ui_btn.clicked.connect(lambda: self._open_web_ui())
+        web_ui_btn.setStyleSheet(self.button_style)
+        button_layout.addWidget(web_ui_btn)
         
-        # Help text
-        help_label = QLabel("Seleziona la cartella sincronizzata del tuo servizio cloud.")
-        help_label.setWordWrap(True)
-        layout.addWidget(help_label)
+        # Riavvia Syncthing
+        restart_btn = QPushButton("Riavvia Syncthing")
+        restart_btn.clicked.connect(self._restart_syncthing)
+        restart_btn.setStyleSheet(self.button_style)
+        button_layout.addWidget(restart_btn)
+        
+        syncthing_layout.addLayout(button_layout)
+        
+        # Aggiungi descrizione
+        desc_label = QLabel(
+            "Syncthing permette di sincronizzare automaticamente il database "
+            "tra più dispositivi in modo sicuro e privato, senza dipendere da servizi cloud di terze parti."
+        )
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet("color: #666; font-size: 11px;")
+        syncthing_layout.addWidget(desc_label)
+        
+        syncthing_group.setLayout(syncthing_layout)
+        layout.addWidget(syncthing_group)
         
         cloud_tab.setLayout(layout)
         return cloud_tab
+
+    def _update_syncthing_status(self):
+        """Aggiorna lo stato di Syncthing"""
+        try:
+            if hasattr(self.parent, 'syncthing_manager'):
+                # Ottieni lo stato
+                status = self.parent.syncthing_manager.get_status()
+                self.status_value.setText(status['state'])
+                
+                # Ottieni l'ID del dispositivo
+                device_id = self.parent.syncthing_manager.get_device_id()
+                self.device_id.setText(device_id)
+                
+                # Ottieni il percorso della cartella
+                folder_path = self.parent.syncthing_manager.get_folder_path()
+                self.folder_path.setText(folder_path)
+            else:
+                self.status_value.setText("Syncthing non inizializzato")
+                
+        except Exception as e:
+            logger.error(f"Errore nell'aggiornamento dello stato Syncthing: {str(e)}")
+            self.status_value.setText("Errore")
+
+    def _copy_to_clipboard(self, text):
+        """Copia il testo negli appunti"""
+        clipboard = QApplication.clipboard()
+        clipboard.setText(text)
+        self.parent.status_manager.show_message("ID copiato negli appunti", 2000)
+
+    def _add_device(self):
+        """Mostra il dialog per aggiungere un nuovo dispositivo"""
+        device_id, ok = QInputDialog.getText(
+            self,
+            "Aggiungi Dispositivo",
+            "Inserisci l'ID del dispositivo da aggiungere:"
+        )
+        if ok and device_id:
+            try:
+                self.parent.syncthing_manager.add_device(device_id)
+                QMessageBox.information(
+                    self,
+                    "Successo",
+                    "Dispositivo aggiunto correttamente"
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Errore",
+                    f"Errore nell'aggiunta del dispositivo:\n{str(e)}"
+                )
+
+    def _open_web_ui(self):
+        """Apre l'interfaccia web di Syncthing"""
+        import webbrowser
+        webbrowser.open("http://localhost:8384")
+
+    def _restart_syncthing(self):
+        """Riavvia il servizio Syncthing"""
+        try:
+            if hasattr(self.parent, 'syncthing_manager'):
+                self.parent.syncthing_manager.restart()
+                QMessageBox.information(
+                    self,
+                    "Successo",
+                    "Syncthing riavviato correttamente"
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore nel riavvio di Syncthing:\n{str(e)}"
+            )
 
     def init_saving_tab(self):
         saving_tab = QWidget()

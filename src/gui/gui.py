@@ -22,7 +22,6 @@ from core.managers.calendar_manager import CalendarManager
 from core.managers.status_manager import StatusManager
 from core.managers.print_manager import PrintManager
 from core.managers.database_dir_manager import DatabaseDirManager
-from core.managers.cloud_manager import CloudManager
 
 # Importazioni utils
 from core.utils import print_data
@@ -108,6 +107,7 @@ class MainWindow(QMainWindow):
 
     def _init_managers(self):
         """Inizializza i manager dell'applicazione"""
+<<<<<<< HEAD
         try:
             # Prima i manager base
             self.database_manager = DatabaseManager(self)
@@ -140,6 +140,21 @@ class MainWindow(QMainWindow):
             logger.error(f"Errore nell'inizializzazione dei manager: {str(e)}")
             QMessageBox.critical(self, "Errore", f"Errore nell'inizializzazione dei manager: {str(e)}")
             sys.exit(1)
+=======
+        # Prima i manager base
+        self.database_manager = DatabaseManager(self)
+        self.database_dir_manager = DatabaseDirManager(self)
+        self.status_manager = StatusManager(self)  # Sposta questo prima
+        
+        # Poi i manager che dipendono da altri
+        self.autosave_manager = AutosaveManager(self)
+        self.menu_manager = MenuManager(self)
+        self.theme_manager = ThemeManager(self)
+        self.export_manager = ExportManager(self)
+        self.calendar_manager = CalendarManager(self)
+        self.year_manager = YearManager()
+        self.print_manager = PrintManager(self)
+>>>>>>> e96e87b7ca2acbc94ed418b25497070b11d1b288
 
     def _init_ui_components(self):
         """Inizializza i componenti dell'interfaccia utente"""
