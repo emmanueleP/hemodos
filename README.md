@@ -1,28 +1,38 @@
-# 🩸 Hemodos - Blood Donation Appointment Management 
+# 🩸 Hemodos - Gestione Donazioni di Sangue
 
 ![Hemodos Logo](src/assets/logo.ico)
 
-🇬🇧 Hemodos is a desktop application developed by [Emmanuele Pani](https://github.com/emmanueleP) for managing and organizing blood donation appointments.
+Hemodos è un'applicazione desktop sviluppata da [Emmanuele Pani](https://github.com/emmanueleP) per la gestione e l'organizzazione delle donazioni di sangue.
+
+## 🌟 Caratteristiche Principali
+
+- Gestione completa delle donazioni di sangue
+- Interfaccia utente intuitiva e moderna
+- Sistema di gestione utenti sicuro
+- Backup automatico dei dati
+- Supporto multi-utente
+- Sincronizzazione cloud dei dati
 
 ## 📥 Download
 
-🇬🇧 Download the latest version:
-- [Hemodos latest version](https://emmanuelep.github.io/3p6gen/pages/download.html) (Windows)
+Scarica l'ultima versione:
+- [Hemodos ultima versione](https://emmanuelep.github.io/3p6gen/pages/download.html) (Windows)
+- [Hemodos ultima versione](https://emmanuelep.github.io/3p6gen/pages/download.html) (macOS)
 
-## ✨ Documentation and download
-All the documentation and changelog are available on [3.6Gen](https://emmanuelep.github.io/3p6gen)
+## ✨ Documentazione e Changelog
+Tutta la documentazione e il changelog sono disponibili su [3.6Gen](https://emmanuelep.github.io/3p6gen)
 
-## 🆘 Support
+## 🆘 Supporto
 
-To report bugs or request new features, open an issue on GitHub.
+Per segnalare bug o richiedere nuove funzionalità, apri una issue su GitHub.
 
-## 📄 License
+## 📄 Licenza
 
-This project is released under the MIT license. See [LICENSE.md](LICENSE.md) file for details.
+Questo progetto è rilasciato sotto licenza MIT. Vedi il file [LICENSE.md](LICENSE.md) per i dettagli.
 
-## 👨‍💻 Author
+## 👨‍💻 Autore
 
 Emmanuele Pani - [GitHub](https://github.com/emmanueleP)
 
-## 📚 3.6Gen - Home of all my projects
-[Home of all my projects](https://emmanuelep.github.io/3p6gen)
+## 📚 3.6Gen - Home di tutti i miei progetti
+[Home di tutti i miei progetti](https://emmanuelep.github.io/3p6gen)

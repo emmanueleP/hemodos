@@ -39,7 +39,8 @@ class ManualDialog(HemodosDialog):
             <li>Tracciamento dello stato delle donazioni</li>
             <li>Statistiche dettagliate</li>
             <li>Esportazione dati in formato DOCX</li>
-            <li>Sincronizzazione cloud (OneDrive/Google Drive)</li>
+            <li>Sistema cloud integrato per la sincronizzazione dei dati</li>
+            <li>Gestione utenti sicura con crittografia</li>
             <li>Backup automatico dei dati</li>
             <li>Gestione multi-anno con archivio storico</li>
             <li>Sistema di cronologia con tracciamento modifiche</li>
@@ -48,7 +49,8 @@ class ManualDialog(HemodosDialog):
         <h3>Primo Avvio:</h3>
         <p>Al primo avvio, verrai guidato attraverso:</p>
         <ul>
-            <li>Configurazione del database (locale o cloud)</li>
+            <li>Configurazione del percorso cloud per i dati</li>
+            <li>Creazione o accesso al tuo account utente</li>
             <li>Impostazione delle date di donazione</li>
             <li>Personalizzazione delle preferenze</li>
         </ul>
@@ -64,6 +66,7 @@ class ManualDialog(HemodosDialog):
             <li>Le date con donazioni programmate sono evidenziate in verde</li>
             <li>Clic su una data per visualizzare/modificare le prenotazioni</li>
             <li>Menu contestuale disponibile con clic destro sulla data</li>
+            <li>Sincronizzazione automatica con il cloud</li>
         </ul>
 
         <h3>Funzionalità del menu contestuale:</h3>
@@ -96,12 +99,14 @@ class ManualDialog(HemodosDialog):
             <li>Checkbox per segnare le prime donazioni</li>
             <li>Menu a tendina per aggiornare lo stato</li>
             <li>Pulsante di reset per cancellare una prenotazione</li>
+            <li>Sincronizzazione automatica delle modifiche</li>
         </ul>
 
         <h3>Salvataggio</h3>
         <ul>
             <li>Automatico ogni 5 minuti (configurabile)</li>
             <li>Manuale tramite pulsante "Salva" o Ctrl+S</li>
+            <li>Sincronizzazione immediata con il cloud</li>
             <li>Conferma al momento della chiusura</li>
         </ul>
         """
@@ -118,6 +123,7 @@ class ManualDialog(HemodosDialog):
             <li>Filtro per anno</li>
             <li>Possibilità di eliminare la cronologia dell'anno corrente</li>
             <li>Tracciamento automatico delle modifiche</li>
+            <li>Sincronizzazione della cronologia tra utenti</li>
         </ul>
 
         <h3>Statistiche</h3>
@@ -129,16 +135,17 @@ class ManualDialog(HemodosDialog):
             <li>Prime donazioni</li>
             <li>Percentuali di completamento</li>
             <li>Confronto tra anni diversi</li>
+            <li>Esportazione statistiche in vari formati</li>
         </ul>
 
         <h3>Gestione Database</h3>
         <ul>
-            <li>Creazione nuovo database</li>
-            <li>Apertura database esistente</li>
+            <li>Database centralizzato nel cloud</li>
             <li>Gestione multi-anno</li>
-            <li>Eliminazione database vecchi</li>
             <li>Backup automatico</li>
-            <li>Sincronizzazione cloud</li>
+            <li>Sincronizzazione tra dispositivi</li>
+            <li>Protezione dati con crittografia</li>
+            <li>Gestione permessi utente</li>
         </ul>
         """
         return self.create_text_tab(content)
@@ -152,13 +159,15 @@ class ManualDialog(HemodosDialog):
             <li>Gestione date di donazione</li>
             <li>Configurazione orari disponibili</li>
             <li>Personalizzazione intervalli</li>
+            <li>Gestione utenti e permessi</li>
         </ul>
 
-        <h3>Cloud Storage</h3>
+        <h3>Cloud</h3>
         <ul>
-            <li>Selezione servizio (Locale/OneDrive/Google Drive)</li>
-            <li>Configurazione percorsi</li>
-            <li>Impostazioni sincronizzazione</li>
+            <li>Configurazione percorso cloud</li>
+            <li>Gestione sincronizzazione</li>
+            <li>Impostazioni backup</li>
+            <li>Gestione accessi utente</li>
         </ul>
 
         <h3>Aspetto</h3>
@@ -173,6 +182,7 @@ class ManualDialog(HemodosDialog):
             <li>Attivazione/disattivazione autosave</li>
             <li>Configurazione intervallo di salvataggio</li>
             <li>Impostazioni backup</li>
+            <li>Sincronizzazione automatica</li>
         </ul>
         """
         return self.create_text_tab(content)
@@ -188,6 +198,7 @@ class ManualDialog(HemodosDialog):
             <li><b>Ctrl+E</b>: Esporta in DOCX</li>
             <li><b>F1</b>: Mostra informazioni</li>
             <li><b>Ctrl+Q</b>: Chiudi applicazione</li>
+            <li><b>Ctrl+U</b>: Gestione utenti</li>
         </ul>
 
         <h3>Calendario</h3>
@@ -203,6 +214,7 @@ class ManualDialog(HemodosDialog):
             <li><b>Enter</b>: Modifica cella</li>
             <li><b>Esc</b>: Annulla modifica</li>
             <li><b>Canc</b>: Cancella contenuto</li>
+            <li><b>Ctrl+F</b>: Cerca</li>
         </ul>
         """
         return self.create_text_tab(content)
