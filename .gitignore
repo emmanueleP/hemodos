@@ -41,9 +41,8 @@ build.sh
 *.db
 *.log
 *.bak
-hemodos.spec
 *iss
-file_version_info.txt
+
 config.json
 
 # Build and Installer
