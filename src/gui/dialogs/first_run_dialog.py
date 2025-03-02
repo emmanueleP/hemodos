@@ -43,11 +43,9 @@ class FirstRunDialog(HemodosDialog):
         if self.first_run:
             welcome_text.setText(
                 "Benvenuto in Hemodos!\n\n"
-                "Per iniziare, clicca sul manuale o sul database per aprire la configurazione.\n"
-                "Potrai scegliere:\n"
-                "• Il tipo di database (locale o cloud).\n"
-                "• La struttura per l'anno corrente.\n"
-                "• Le date di donazione.\n\n"
+                "Per iniziare, clicca sul manuale e poi su Configura database per aprire la configurazione.\n"
+                "Dovrai fare il login con le credenziali admin o quelle fornite dal tuo amministratore.\n"
+                "Trovi le credenziali admin per il primo accesso nel manuale.\n\n"
                 )
 
         self.content_layout.addWidget(welcome_text)
@@ -130,13 +128,15 @@ class FirstRunDialog(HemodosDialog):
         from gui.dialogs.database_dialog import ConfigDatabaseDialog
         database_dialog = ConfigDatabaseDialog(self.parent())
         if database_dialog.exec_() == QDialog.Accepted:
-            # Imposta il flag per indicare che il database è già stato configurato
-            self.settings.setValue("database_configured", True)
-            
             # Mostra il WelcomeDialog per il login dell'admin
             from gui.dialogs.welcome_dialog import WelcomeDialog
             welcome = WelcomeDialog(self.parent())
             if welcome.exec_() == QDialog.Accepted:
+                # Imposta first_run a False e rimuovi i flag temporanei
+                self.settings.setValue("first_run", False)
+                self.settings.remove("first_run_dialog_shown")
+                self.settings.remove("database_configured")
+                self.settings.sync()
                 self.accept()  # Chiudi il FirstRunDialog se il login è avvenuto con successo
             else:
                 sys.exit(0)  # Esci se l'utente annulla il login

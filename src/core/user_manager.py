@@ -1,21 +1,70 @@
 import os
 import json
 import base64
+import hashlib
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from datetime import datetime
+from PyQt5.QtCore import QSettings
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
+from core.logger import logger
+import sqlite3
+
+class ChangePasswordDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Cambio Password")
+        self.setMinimumWidth(300)
+        layout = QVBoxLayout(self)
+        
+        layout.addWidget(QLabel("È necessario cambiare la password al primo accesso"))
+        
+        layout.addWidget(QLabel("Nuova Password:"))
+        self.new_password = QLineEdit()
+        self.new_password.setEchoMode(QLineEdit.Password)
+        layout.addWidget(self.new_password)
+        
+        layout.addWidget(QLabel("Conferma Password:"))
+        self.confirm_password = QLineEdit()
+        self.confirm_password.setEchoMode(QLineEdit.Password)
+        layout.addWidget(self.confirm_password)
+        
+        btn = QPushButton("Conferma")
+        btn.clicked.connect(self.validate)
+        layout.addWidget(btn)
+        
+    def validate(self):
+        if len(self.new_password.text()) < 4:
+            QMessageBox.warning(self, "Errore", "La password deve essere di almeno 4 caratteri")
+            return
+            
+        if self.new_password.text() != self.confirm_password.text():
+            QMessageBox.warning(self, "Errore", "Le password non coincidono")
+            return
+            
+        self.accept()
+        
+    def get_password(self):
+        return self.new_password.text()
 
 class UserManager:
     def __init__(self):
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
-        self.key_file = os.path.join(self._get_hemodos_dir(), '.hemodos_key')
-        self.users_file = os.path.join(self._get_hemodos_dir(), '.users.enc')
-        self._init_crypto()
+        self.cloud_path = self.settings.value("cloud_path", "")
+        self.hemodos_dir = self._get_hemodos_dir()
+        if self.hemodos_dir:
+            self.users_file = os.path.join(self.hemodos_dir, ".hemodos_users")
+            self.key_file = os.path.join(self.hemodos_dir, '.hemodos_key')
+            self._init_crypto()
+        else:
+            logger.error("Directory Hemodos non configurata")
         
     def _get_hemodos_dir(self):
         """Ottiene la directory Hemodos nel cloud"""
         cloud_path = self.settings.value("cloud_path")
+        if not cloud_path:
+            return None
         hemodos_dir = os.path.join(cloud_path, "Hemodos")
         os.makedirs(hemodos_dir, exist_ok=True)
         return hemodos_dir
@@ -30,15 +79,43 @@ class UserManager:
             with open(self.key_file, 'wb') as f:
                 f.write(master_key)
             
-            # Crea l'utente admin di default
-            self.register_user(
-                "admin",
-                "admin123",  # Password temporanea da cambiare al primo accesso
-                "admin@hemodos.local",
-                is_admin=True
-            )
+            # Inizializza Fernet con la chiave master
+            self.fernet = Fernet(master_key)
             
-        self.fernet = Fernet(open(self.key_file, 'rb').read())
+            # Crea l'utente admin di default
+            self.create_default_admin()
+        else:
+            # Carica la chiave esistente
+            with open(self.key_file, 'rb') as f:
+                master_key = f.read()
+            self.fernet = Fernet(master_key)
+        
+    def _hash_password(self, password):
+        """Genera hash della password usando PBKDF2"""
+        salt = os.urandom(16)
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+        )
+        key = base64.b64encode(kdf.derive(password.encode()))
+        return {
+            'hash': key.decode(),
+            'salt': base64.b64encode(salt).decode()
+        }
+        
+    def _verify_password(self, password, stored_hash, stored_salt):
+        """Verifica la password usando PBKDF2"""
+        salt = base64.b64decode(stored_salt)
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+        )
+        key = base64.b64encode(kdf.derive(password.encode()))
+        return key.decode() == stored_hash
         
     def _load_users(self):
         """Carica gli utenti dal file crittografato"""
@@ -63,64 +140,146 @@ class UserManager:
         if username in users:
             return False
             
-        # Genera salt e hash della password
-        salt = os.urandom(16)
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100000,
-        )
-        key = base64.b64encode(kdf.derive(password.encode()))
+        # Usa il metodo _hash_password per la coerenza
+        password_data = self._hash_password(password)
         
         users[username] = {
-            'password_hash': key.decode(),
-            'salt': base64.b64encode(salt).decode(),
+            'password_hash': password_data['hash'],
+            'salt': password_data['salt'],
             'email': email,
             'is_admin': is_admin,
             'created_at': datetime.now().isoformat(),
             'last_login': None,
+            'password_changed': False,
             'status': 'active'
         }
         
         self._save_users(users)
         return True
         
-    def verify_password(self, stored_hash, password):
-        """Verifica la password"""
-        salt = stored_hash[:32]
-        key = stored_hash[32:]
-        new_key = hashlib.pbkdf2_hmac(
-            'sha256',
-            password.encode('utf-8'),
-            salt,
-            100000
-        )
-        return key == new_key
-        
     def verify_user(self, username, password):
         """Verifica le credenziali dell'utente"""
         try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            
-            c.execute("SELECT password_hash FROM users WHERE username=?", (username,))
-            result = c.fetchone()
-            
-            if result and self.verify_password(result[0], password):
-                # Aggiorna ultimo accesso
-                c.execute("""
-                    UPDATE users 
-                    SET last_login = ? 
-                    WHERE username = ?
-                """, (datetime.now(), username))
-                conn.commit()
-                return True
+            users = self._load_users()
+            if username not in users:
+                return False
                 
-            return False
+            user = users[username]
+            return self._verify_password(password, user['password_hash'], user['salt'])
             
         except Exception as e:
             logger.error(f"Errore nella verifica: {str(e)}")
             return False
-        finally:
-            conn.close() 
+
+    def verify_login(self, username, password):
+        """Verifica le credenziali dell'utente e gestisce il cambio password se necessario"""
+        try:
+            users = self._load_users()
+            if username not in users:
+                return False
+
+            user = users[username]
+            if not self._verify_password(password, user['password_hash'], user['salt']):
+                return False
+
+            # Se la password non è mai stata cambiata, forza il cambio
+            if not user.get('password_changed', False):
+                dialog = ChangePasswordDialog()
+                if dialog.exec_() != QDialog.Accepted:
+                    return False
+                    
+                # Aggiorna la password
+                new_password = dialog.get_password()
+                password_data = self._hash_password(new_password)
+                user['password_hash'] = password_data['hash']
+                user['salt'] = password_data['salt']
+                user['password_changed'] = True
+                self._save_users(users)
+
+            # Aggiorna ultimo accesso
+            user['last_login'] = datetime.now().isoformat()
+            self._save_users(users)
+
+            # Configura le impostazioni dell'utente
+            self.settings.setValue("current_user", username)
+            self.settings.setValue("current_user_db", user["database"])
+            self.settings.sync()
+            return True
+
+        except Exception as e:
+            logger.error(f"Errore nella verifica del login: {str(e)}")
+            return False
+
+    def is_admin(self, username):
+        """Verifica se l'utente è admin"""
+        try:
+            users = self._load_users()
+            return users.get(username, {}).get("is_admin", False)
+        except Exception as e:
+            logger.error(f"Errore nella verifica dei permessi admin: {str(e)}")
+            return False
+
+    def get_user_database(self, username):
+        """Ottiene il percorso del database dell'utente"""
+        try:
+            users = self._load_users()
+            return users.get(username, {}).get("database")
+        except Exception as e:
+            logger.error(f"Errore nel recupero del database utente: {str(e)}")
+            return None
+
+    def create_default_admin(self):
+        """Crea l'utente admin di default"""
+        try:
+            if not self.hemodos_dir:
+                logger.error("Directory Hemodos non configurata")
+                return False
+
+            # Crea la directory per l'admin
+            admin_path = os.path.join(self.hemodos_dir, "admin")
+            os.makedirs(admin_path, exist_ok=True)
+
+            # Crea l'hash della password temporanea
+            password_data = self._hash_password("admin123")  # Password temporanea: admin123
+            
+            users_data = {
+                "admin": {
+                    "password_hash": password_data['hash'],
+                    "salt": password_data['salt'],
+                    "is_admin": True,
+                    "database": admin_path,
+                    "created_at": datetime.now().isoformat(),
+                    "last_login": None,
+                    "password_changed": False,
+                    "email": "admin@hemodos.local"
+                }
+            }
+            
+            # Salva il file degli utenti
+            encrypted_data = self.fernet.encrypt(json.dumps(users_data).encode())
+            with open(self.users_file, 'wb') as f:
+                f.write(encrypted_data)
+            return True
+                
+        except Exception as e:
+            logger.error(f"Errore nella creazione dell'admin: {str(e)}")
+            return False
+
+    def update_user_password(self, username, new_password):
+        """Aggiorna la password di un utente"""
+        try:
+            users = self._load_users()
+            if username not in users:
+                return False
+
+            password_data = self._hash_password(new_password)
+            users[username]["password_hash"] = password_data['hash']
+            users[username]["salt"] = password_data['salt']
+            users[username]["password_changed"] = True
+            
+            self._save_users(users)
+            return True
+            
+        except Exception as e:
+            logger.error(f"Errore nell'aggiornamento della password: {str(e)}")
+            return False 

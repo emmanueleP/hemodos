@@ -56,33 +56,28 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
 
+        # Inizializza i manager base
+        self.database_dir_manager = DatabaseDirManager(self)
+        self.status_manager = StatusManager(self)
+
         # Controlla se è il primo avvio
         first_run = self.settings.value("first_run", True, type=bool)
         if first_run:
-            # Mostra il FirstRunDialog
-            first_run_dialog = FirstRunDialog(self)
-            if first_run_dialog.exec_() != QDialog.Accepted:
-                sys.exit(0)
-            
-            # Mostra il ConfigDatabaseDialog solo se non è già stato configurato
-            if not self.settings.value("database_configured", False, type=bool):
-                config_dialog = ConfigDatabaseDialog(self)
-                if config_dialog.exec_() != QDialog.Accepted:
+            # Mostra il FirstRunDialog solo se non è già stato mostrato in questa sessione
+            if not self.settings.value("first_run_dialog_shown", False, type=bool):
+                first_run_dialog = FirstRunDialog(self)
+                if first_run_dialog.exec_() != QDialog.Accepted:
                     sys.exit(0)
-                
-            # Imposta first_run a False solo dopo la configurazione completata
-            self.settings.setValue("first_run", False)
-            # Rimuovi il flag di configurazione del database
-            self.settings.remove("database_configured")
-            self.settings.sync()
-        else:
+                # Segna che il FirstRunDialog è stato mostrato
+                self.settings.setValue("first_run_dialog_shown", True)
+                self.settings.sync()
+        elif not self.settings.value("current_user"):
             # Mostra il WelcomeDialog solo se non c'è un utente già loggato
-            if not self.settings.value("current_user"):
-                welcome = WelcomeDialog(self)
-                if welcome.exec_() != QDialog.Accepted:
-                    # Se l'utente chiude il welcome dialog, chiudi l'applicazione
-                    sys.exit(0)
-            
+            welcome = WelcomeDialog(self)
+            if welcome.exec_() != QDialog.Accepted:
+                # Se l'utente chiude il welcome dialog, chiudi l'applicazione
+                sys.exit(0)
+        
         # Ottieni l'utente corrente e il suo database
         self.current_user = self.settings.value("current_user")
         self.current_user_db = self.settings.value("current_user_db")
@@ -109,15 +104,13 @@ class MainWindow(QMainWindow):
     def _init_managers(self):
         """Inizializza i manager dell'applicazione"""
         try:
-            # Prima i manager base
-            self.database_manager = DatabaseManager(self)
-            self.database_dir_manager = DatabaseDirManager(self)
-            self.status_manager = StatusManager(self)
+            # I manager base sono già stati inizializzati nel costruttore
             
-            # Poi i manager che dipendono da altri
-            self.cloud_manager = CloudManager(self)
+            # Inizializza il database manager
+            self.database_manager = DatabaseManager(self)
             
             # Configura il cloud manager con il percorso dell'utente
+            self.cloud_manager = CloudManager(self)
             if self.current_user_db:
                 cloud_path = os.path.dirname(self.current_user_db)
                 self.cloud_manager.setup_cloud_sync(cloud_path)

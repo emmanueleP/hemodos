@@ -2,12 +2,14 @@ from PyQt5.QtWidgets import QMenuBar, QMenu, QAction, QStatusBar, QLabel, QMessa
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 from gui.dialogs.daily_reservations_dialog import DailyReservationsDialog
+from core.user_manager import UserManager
 import os
 import json
 
 class MenuManager:
     def __init__(self, main_window):
         self.main_window = main_window
+        self.user_manager = UserManager()
 
     def create_menu_bar(self, main_window):
         """Crea la barra dei menu"""
@@ -85,13 +87,9 @@ class MenuManager:
         settings_menu.addAction(admin_action)
         
         # Verifica se l'utente è admin
-        users_file = os.path.join(main_window.settings.value("cloud_path", ""), ".hemodos_users")
-        if os.path.exists(users_file):
-            with open(users_file, 'r') as f:
-                users = json.load(f)
-                current_user = main_window.settings.value("current_user")
-                if current_user not in users or not users[current_user].get('is_admin', False):
-                    admin_action.setEnabled(False)
+        current_user = main_window.settings.value("current_user")
+        if not current_user or not self.user_manager.is_admin(current_user):
+            admin_action.setEnabled(False)
 
         # Menu Info
         info_menu = menubar.addMenu('Info')
