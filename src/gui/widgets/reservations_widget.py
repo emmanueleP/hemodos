@@ -1,10 +1,11 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, 
-                            QComboBox, QGroupBox, QMessageBox)
-from PyQt5.QtCore import QTime, Qt, QDate
+                            QComboBox, QGroupBox, QMessageBox, QHBoxLayout, QPushButton)
+from PyQt5.QtCore import QTime, Qt, QDate, QSize
 from core.logger import logger
 from core.database import get_reservations, add_reservation, save_donation_status
 from datetime import datetime
 from core.database import delete_reservation_from_db
+from PyQt5.QtGui import QIcon
 
 class ReservationsWidget(QWidget):
     def __init__(self, parent=None):
@@ -39,6 +40,33 @@ class ReservationsWidget(QWidget):
         table_layout.addWidget(self.table)
         table_group.setLayout(table_layout)
         layout.addWidget(table_group)
+
+        # Toolbar
+        self._init_toolbar(layout)
+
+    def _init_toolbar(self, layout):
+        """Inizializza la toolbar con i pulsanti"""
+        toolbar = QHBoxLayout()
+        
+        buttons = [
+            ("add_time.png", "Aggiungi orario", self.show_time_entry_dialog),
+            ("save.png", "Salva (Ctrl+S)", self.save_reservations),
+            ("delete.png", "Elimina prenotazione", self.delete_reservation),
+            ("doc.png", "Esporta in docx", lambda: self.main_window.export_manager.export_to_docx(self.reservations_widget)),
+            ("printer.png", "Stampa", self.print_reservations)
+        ]
+        
+        for icon_name, tooltip, callback in buttons:
+            button = QPushButton()
+            button.setIcon(QIcon(self.main_window.paths_manager.get_asset_path(icon_name)))
+            button.setIconSize(QSize(24, 24))
+            button.setToolTip(tooltip)
+            button.clicked.connect(callback)
+            button.setFixedSize(36, 36)
+            toolbar.addWidget(button)
+        
+        toolbar.addStretch()
+        layout.addLayout(toolbar)
 
     def load_default_times(self):
         """Carica gli orari predefiniti nella tabella"""

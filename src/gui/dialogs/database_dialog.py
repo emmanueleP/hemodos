@@ -34,28 +34,9 @@ class ConfigDatabaseDialog(HemodosDialog):
         
         # Aggiungi il logo
         logo_label = QLabel()
-        # Usa il percorso relativo alla directory dell'applicazione
-        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "logo_info.png")
-        # Prova percorsi alternativi se il primo fallisce
-        if not os.path.exists(logo_path):
-            logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo_info.png")
-        if not os.path.exists(logo_path):
-            logo_path = "src/assets/logo_info.png"
-
-        if os.path.exists(logo_path):
-            pixmap = QPixmap(logo_path)
-            scaled_pixmap = pixmap.scaled(200, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            logo_label.setPixmap(scaled_pixmap)
-            logo_label.setAlignment(Qt.AlignCenter)
-            print(f"Logo caricato con successo da: {logo_path}")
-        else:
-            logo_label.setText("Logo non trovato")
-            logo_label.setStyleSheet("QLabel { color: red; }")
-            print(f"Logo non trovato. Percorsi tentati:")
-            print(f"1. {os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'logo_info.png')}")
-            print(f"2. {os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'logo_info.png')}")
-            print(f"3. assets/logo_info.png")
-            print(f"Directory corrente: {os.getcwd()}")
+        logo_pixmap = QPixmap(self.paths_manager.get_asset_path('logo_info.png'))
+        logo_label.setPixmap(logo_pixmap.scaled(200, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        logo_label.setAlignment(Qt.AlignCenter)
         
         logo_layout.addWidget(logo_label)
         main_layout.addWidget(logo_container)
@@ -118,6 +99,12 @@ class ConfigDatabaseDialog(HemodosDialog):
         ok_button = self.buttons_layout.itemAt(1).widget()
         ok_button.clicked.disconnect()  # Disconnetti il vecchio segnale
         ok_button.clicked.connect(self.check_and_accept)
+
+        # Icone dei pulsanti
+        test_button = self.buttons_layout.itemAt(1).widget()
+        test_button.setIcon(QIcon(self.paths_manager.get_asset_path('test_64px.png')))
+        save_button = self.buttons_layout.itemAt(2).widget()
+        save_button.setIcon(QIcon(self.paths_manager.get_asset_path('save_64px.png')))
 
     def check_and_accept(self):
         """Verifica e accetta il dialog"""

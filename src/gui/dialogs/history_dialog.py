@@ -9,11 +9,13 @@ from datetime import datetime
 from core.database import get_db_path
 from core.delete_db_logic import get_available_years, get_base_path
 from core.logger import logger
+from core.paths_manager import PathsManager
 
 class HistoryDialog(HemodosDialog):
     def __init__(self, parent=None):
         super().__init__(parent, "Cronologia Prenotazioni")
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
+        self.paths_manager = PathsManager()
         self.setMinimumSize(850, 600)
         self.resize(850, 600)
         self.init_ui()

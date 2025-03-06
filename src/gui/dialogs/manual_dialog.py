@@ -1,6 +1,6 @@
 from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QTabWidget, QWidget, QTextBrowser, 
-                            QLabel, QScrollArea)
+                            QLabel, QScrollArea, QPushButton, QHBoxLayout)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 import os
@@ -25,6 +25,23 @@ class ManualDialog(HemodosDialog):
         tab_widget.addTab(self.create_admin_tab(), "HemodosAdmin")
 
         self.content_layout.addWidget(tab_widget)
+
+        # Crea i pulsanti
+        manual_button = QPushButton("Manuale")
+        info_button = QPushButton("Info")
+        database_button = QPushButton("Database")
+
+        # Imposta le icone
+        manual_button.setIcon(QIcon(self.paths_manager.get_asset_path('user_guide_64px.png')))
+        info_button.setIcon(QIcon(self.paths_manager.get_asset_path('info_64px.png')))
+        database_button.setIcon(QIcon(self.paths_manager.get_asset_path('database_64px.png')))
+
+        # Aggiungi i pulsanti al layout
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addWidget(manual_button)
+        buttons_layout.addWidget(info_button)
+        buttons_layout.addWidget(database_button)
+        self.content_layout.addLayout(buttons_layout)
 
     def create_overview_tab(self):
         content = """

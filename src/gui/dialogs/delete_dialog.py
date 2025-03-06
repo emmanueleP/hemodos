@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (QVBoxLayout, QTreeWidget, QTreeWidgetItem,
 from PyQt5.QtCore import Qt
 from core.delete_db_logic import get_available_years, delete_year_directory
 from core.logger import logger
+from PyQt5.QtGui import QIcon
 
 class DeleteFilesDialog(HemodosDialog):
     def __init__(self, parent=None):
@@ -23,6 +24,9 @@ class DeleteFilesDialog(HemodosDialog):
         delete_btn = QPushButton("Elimina")
         delete_btn.setStyleSheet(self.button_style)
         delete_btn.clicked.connect(self.delete_selected)
+        
+        # Icone dei pulsanti
+        delete_btn.setIcon(QIcon(self.paths_manager.get_asset_path('delete_64px.png')))
         
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()

@@ -45,6 +45,7 @@ from gui.widgets.reservations_widget import ReservationsWidget
 # Importazioni core
 from core.database import add_donation_time, setup_cloud_monitoring, init_db
 from core.logger import logger
+from core.paths_manager import PathsManager
 
 class MainWindow(QMainWindow):
     # Costanti della classe
@@ -54,45 +55,20 @@ class MainWindow(QMainWindow):
 
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
-
-        # Inizializza i manager base
-        self.database_dir_manager = DatabaseDirManager(self)
-        self.status_manager = StatusManager(self)
-
-        # Controlla se è il primo avvio
-        first_run = self.settings.value("first_run", True, type=bool)
-        if first_run:
-            # Mostra il FirstRunDialog solo se non è già stato mostrato in questa sessione
-            if not self.settings.value("first_run_dialog_shown", False, type=bool):
-                first_run_dialog = FirstRunDialog(self)
-                if first_run_dialog.exec_() != QDialog.Accepted:
-                    sys.exit(0)
-                # Segna che il FirstRunDialog è stato mostrato
-                self.settings.setValue("first_run_dialog_shown", True)
-                self.settings.sync()
-        elif not self.settings.value("current_user"):
-            # Mostra il WelcomeDialog solo se non c'è un utente già loggato
-            welcome = WelcomeDialog(self)
-            if welcome.exec_() != QDialog.Accepted:
-                # Se l'utente chiude il welcome dialog, chiudi l'applicazione
-                sys.exit(0)
-        
-        # Ottieni l'utente corrente e il suo database
-        self.current_user = self.settings.value("current_user")
         self.current_user_db = self.settings.value("current_user_db")
         
-        if not self.current_user or not self.current_user_db:
-            QMessageBox.critical(self, "Errore", "Errore nel caricamento delle informazioni utente")
-            sys.exit(1)
+        # Inizializza paths_manager prima degli altri manager
+        self.paths_manager = PathsManager()
         
-        # Continua con l'inizializzazione normale
-        self.setWindowTitle(f"{self.WINDOW_TITLE} - {self.current_user}")
-        self.resize(*self.DEFAULT_WINDOW_SIZE)
-        self.setMinimumSize(*self.MIN_WINDOW_SIZE)
-
         # Inizializza i manager
         self._init_managers()
+        
+        # Imposta la finestra
+        self.setWindowTitle("Hemodos")
+        self.setMinimumSize(*self.MIN_WINDOW_SIZE)
+        self.resize(*self.DEFAULT_WINDOW_SIZE)
         
         # Inizializza l'interfaccia
         self._init_ui_components()
@@ -104,7 +80,9 @@ class MainWindow(QMainWindow):
     def _init_managers(self):
         """Inizializza i manager dell'applicazione"""
         try:
-            # I manager base sono già stati inizializzati nel costruttore
+            # Inizializza prima i manager base
+            self.database_dir_manager = DatabaseDirManager(self)
+            self.status_manager = StatusManager(self)
             
             # Inizializza il database manager
             self.database_manager = DatabaseManager(self)
@@ -135,49 +113,42 @@ class MainWindow(QMainWindow):
             sys.exit(1)
 
     def _init_ui_components(self):
-        """Inizializza i componenti dell'interfaccia utente"""
+        """Inizializza i componenti dell'interfaccia"""
+        # Widget centrale
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
+        main_layout = QVBoxLayout(central_widget)
 
         # Crea la barra dei menu
         self.menu_manager.create_menu_bar(self)
         
-        # Inizializza calendario
-        self.calendar = self.calendar_manager.init_calendar(self)
-        
-        # Toolbar
-        toolbar = QHBoxLayout()
+        # Toolbar sopra il calendario
+        toolbar_layout = QHBoxLayout()
         
         # Pulsante Salva
         save_btn = QPushButton()
-        save_btn.setIcon(QIcon('src/assets/diskette.png'))
+        save_btn.setIcon(QIcon(self.paths_manager.get_asset_path('diskette.png')))
         save_btn.setIconSize(QSize(24, 24))
         save_btn.setToolTip("Salva tutto (Ctrl+S)")
         save_btn.clicked.connect(self.save_current)
         save_btn.setFixedSize(36, 36)
-        toolbar.addWidget(save_btn)
-        
+        toolbar_layout.addWidget(save_btn)
+
         # Pulsante Prossima Donazione
         next_donation_btn = QPushButton()
-        next_donation_btn.setIcon(QIcon('src/assets/blood.png'))
+        next_donation_btn.setIcon(QIcon(self.paths_manager.get_asset_path('blood.png')))
         next_donation_btn.setIconSize(QSize(24, 24))
         next_donation_btn.setToolTip("Vai alla prossima donazione")
         next_donation_btn.clicked.connect(self.calendar_manager.go_to_next_donation)
         next_donation_btn.setFixedSize(36, 36)
-        toolbar.addWidget(next_donation_btn)
+        toolbar_layout.addWidget(next_donation_btn)
         
-        toolbar.addStretch()
+        toolbar_layout.addStretch()
+        main_layout.addLayout(toolbar_layout)
         
-        # Aggiungi la toolbar al layout principale
-        main_layout = QVBoxLayout()
-        main_layout.addLayout(toolbar)
+        # Inizializza calendario
+        self.calendar = self.calendar_manager.init_calendar(self)
         main_layout.addWidget(self.calendar)
-        
-        # Crea un widget centrale e imposta il layout
-        central_widget = QWidget()
-        central_widget.setLayout(main_layout)
-        self.setCentralWidget(central_widget)
         
         # Aggiungi shortcut per Ctrl+S
         save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
@@ -349,3 +320,11 @@ class MainWindow(QMainWindow):
         from gui.dialogs.history_dialog import HistoryDialog
         dialog = HistoryDialog(self)
         dialog.exec_()
+
+    def init_ui(self):
+        # ... existing code ...
+        
+        # Toolbar icons
+        self.toolbar.addAction(QIcon(self.paths_manager.get_asset_path('new_64px.png')), "Nuovo")
+        self.toolbar.addAction(QIcon(self.paths_manager.get_asset_path('save_64px.png')), "Salva")
+        # ... altri pulsanti della toolbar ...

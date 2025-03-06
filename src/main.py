@@ -9,6 +9,24 @@ from PyQt5.QtCore import QSettings, Qt
 import os
 import json
 import sys
+import logging
+from core.paths_manager import PathsManager
+
+# Configura il logging
+def setup_logging(paths_manager):
+    log_dir = paths_manager.get_logs_path()
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, 'hemodos.log')
+    
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+    return logging.getLogger('Hemodos')
 
 # Load configuration
 def load_config():
@@ -94,45 +112,95 @@ def show_update_dialog(version, release_notes, download_url):
         updater.start()
 
 def main():
-    app = QApplication(sys.argv)
-    app.setApplicationName("Hemodos")
-    app.setStyle("Fusion")
-    
-    # Imposta l'icona dell'applicazione
-    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo.png")
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QIcon(icon_path))
-    
-    settings = QSettings('Hemodos', 'DatabaseSettings')
-    
-    # Load config
-    config = load_config()
-    
-    # Crea la finestra principale
-    window = MainWindow(config)
-    
-    # Imposta e applica il tema scuro come predefinito
-    settings.setValue("theme", "dark")
-    window.theme_manager.apply_theme()
-    
-    first_run = settings.value("first_run", True, type=bool)
-    
-    # Si occupa del primo avvio
-    if first_run:
-        dialog = FirstRunDialog(window)
-        dialog.first_run = True
-        result = dialog.exec_()
-        if result == QDialog.Rejected:
-            sys.exit()
-        settings.setValue("first_run", False)
-    else:
-        welcome = WelcomeDialog(window)
-        if welcome.exec_() == QDialog.Rejected:
-            sys.exit()
-    
-    # Mostra la finestra principale
-    window.show()
-    sys.exit(app.exec_())
+    try:
+        app = QApplication(sys.argv)
+        paths_manager = PathsManager()
+        logger = setup_logging(paths_manager)
+        
+        logger.info("Avvio dell'applicazione")
+        logger.debug(f"Directory risorse: {paths_manager.resources_path}")
+        
+        # Verifica se è il primo avvio
+        config_file = os.path.join(paths_manager.get_config_path(), 'config.json')
+        is_first_run = not os.path.exists(config_file)
+        logger.debug(f"Primo avvio: {is_first_run}")
+        
+        if is_first_run:
+            logger.info("Mostra dialog primo avvio")
+            first_run = FirstRunDialog(None)
+            first_run.paths_manager = paths_manager
+            if first_run.exec_() != QDialog.Accepted:
+                logger.info("Primo avvio annullato")
+                sys.exit(0)
+            # Dopo il primo avvio, non mostrare il welcome dialog
+            settings = QSettings('Hemodos', 'DatabaseSettings')
+            settings.setValue("first_run", False)
+        elif not QSettings('Hemodos', 'DatabaseSettings').value("current_user"):
+            # Mostra welcome dialog solo se non c'è un utente già loggato
+            logger.info("Mostra welcome dialog")
+            welcome = WelcomeDialog(None)
+            welcome.paths_manager = paths_manager
+            if welcome.exec_() != QDialog.Accepted:
+                logger.info("Login annullato")
+                sys.exit(0)
+
+        app.setApplicationName("Hemodos")
+        app.setStyle("Fusion")
+        
+        # Imposta l'icona dell'applicazione
+        icon_path = paths_manager.get_asset_path("logo.png")
+        logger.debug(f"Percorso icona: {icon_path}")
+        if os.path.exists(icon_path):
+            app.setWindowIcon(QIcon(icon_path))
+            logger.info("Icona caricata con successo")
+        else:
+            logger.warning(f"Icona non trovata: {icon_path}")
+            # Prova percorsi alternativi
+            alt_paths = [
+                os.path.join(paths_manager.resources_path, 'assets', 'logo.png'),
+                os.path.join(paths_manager.base_path, 'src', 'assets', 'logo.png'),
+                'src/assets/logo.png'
+            ]
+            for path in alt_paths:
+                logger.debug(f"Tentativo percorso alternativo: {path}")
+                if os.path.exists(path):
+                    app.setWindowIcon(QIcon(path))
+                    logger.info(f"Icona caricata dal percorso alternativo: {path}")
+                    break
+        
+        settings = QSettings('Hemodos', 'DatabaseSettings')
+        
+        # Load config
+        try:
+            config = load_config()
+            logger.debug("Configurazione caricata con successo")
+        except Exception as e:
+            logger.error(f"Errore nel caricamento della configurazione: {str(e)}")
+            QMessageBox.critical(None, "Errore", 
+                               "Errore nel caricamento della configurazione.\n"
+                               f"Dettagli: {str(e)}")
+            sys.exit(1)
+        
+        # Crea la finestra principale
+        window = MainWindow(config)
+        window.paths_manager = paths_manager
+        
+        # Imposta e applica il tema scuro come predefinito
+        settings.setValue("theme", "dark")
+        window.theme_manager.apply_theme()
+        
+        # Mostra la finestra principale
+        window.show()
+        logger.info("Applicazione avviata con successo")
+        sys.exit(app.exec_())
+        
+    except Exception as e:
+        logger = logging.getLogger('Hemodos')
+        logger.error(f"Errore fatale: {str(e)}", exc_info=True)
+        QMessageBox.critical(None, "Errore Fatale", 
+                           f"Si è verificato un errore fatale:\n{str(e)}\n\n"
+                           "Controlla i log per maggiori dettagli.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

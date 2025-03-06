@@ -4,18 +4,21 @@ from PyQt5.QtWidgets import QLabel, QHBoxLayout, QPushButton, QVBoxLayout, QDial
 from gui.dialogs.base_dialog import HemodosDialog
 from gui.dialogs.database_dialog import ConfigDatabaseDialog
 import sys
+from core.paths_manager import PathsManager
 
 class FirstRunDialog(HemodosDialog):
     def __init__(self, parent=None):
         super().__init__(parent, "Hemodos - Primo avvio")
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
         self.first_run = True
-        #Rimuovi ok e annulla da HemodosDialog
+        # Rimuovi ok e annulla da HemodosDialog
         for i in reversed(range(self.buttons_layout.count())):
             widget = self.buttons_layout.itemAt(i).widget()
             if isinstance(widget, QPushButton):
                 widget.setParent(None)
                 widget.deleteLater()
+        # Assicurati che paths_manager sia inizializzato prima di init_ui
+        self.paths_manager = PathsManager()
         self.init_ui()
 
     def init_ui(self):
@@ -23,7 +26,8 @@ class FirstRunDialog(HemodosDialog):
         # Logo
         logo_layout = QHBoxLayout()
         logo_label = QLabel()
-        logo_pixmap = QPixmap('src/assets/logo_info.png')
+        logo_path = self.paths_manager.get_asset_path('logo_info.png')
+        logo_pixmap = QPixmap(logo_path)
         logo_label.setPixmap(logo_pixmap.scaled(500, 500, Qt.KeepAspectRatio))
         logo_layout.addWidget(logo_label, alignment=Qt.AlignCenter)
         self.content_layout.addLayout(logo_layout)
@@ -55,7 +59,7 @@ class FirstRunDialog(HemodosDialog):
 
         #Pulsante manuale
         manual_button = QPushButton("Apri Manuale")
-        manual_button.setIcon(QIcon('src/assets/user_guide_64px.png'))  
+        manual_button.setIcon(QIcon(self.paths_manager.get_asset_path('user_guide_64px.png')))
         manual_button.setToolTip("Apri Manuale")
         manual_button.setStyleSheet("""
             QPushButton {
@@ -73,7 +77,7 @@ class FirstRunDialog(HemodosDialog):
 
         #Pulsante configurazione database
         database_button = QPushButton("Configura database")
-        database_button.setIcon(QIcon('src/assets/database_64px.png'))  
+        database_button.setIcon(QIcon(self.paths_manager.get_asset_path('database_64px.png')))
         database_button.setToolTip("Configura il database")
         database_button.setStyleSheet("""
             QPushButton {
@@ -91,7 +95,7 @@ class FirstRunDialog(HemodosDialog):
 
         #Pulsante esci
         exit_button = QPushButton("Esci")
-        exit_button.setIcon(QIcon('src/assets/exit_64px.png'))
+        exit_button.setIcon(QIcon(self.paths_manager.get_asset_path('exit_64px.png')))
         exit_button.setStyleSheet("""
             QPushButton {
                 background-color: transparent;

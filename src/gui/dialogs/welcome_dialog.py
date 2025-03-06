@@ -2,16 +2,18 @@ from gui.dialogs.base_dialog import HemodosDialog
 from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QPushButton, 
                             QHBoxLayout, QLineEdit, QMessageBox, QGroupBox, QWidget)
 from PyQt5.QtCore import Qt, QSettings
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QIcon
 from core.user_manager import UserManager
 from core.logger import logger
+from core.paths_manager import PathsManager
 
 class WelcomeDialog(HemodosDialog):
     def __init__(self, parent=None):
         super().__init__(parent, "Hemodos - Login")
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
         self.user_manager = UserManager()
-                #Rimuovi ok e annulla da HemodosDialog
+        self.paths_manager = PathsManager()
+        #Rimuovi ok e annulla da HemodosDialog
         for i in reversed(range(self.buttons_layout.count())):
             widget = self.buttons_layout.itemAt(i).widget()
             if isinstance(widget, QPushButton):
@@ -27,12 +29,12 @@ class WelcomeDialog(HemodosDialog):
         main_layout.setContentsMargins(30, 30, 30, 30)
 
         # Logo
+        logo_layout = QHBoxLayout()
         logo_label = QLabel()
-        logo_pixmap = QPixmap('src/assets/logo_info.png')
-        scaled_pixmap = logo_pixmap.scaled(128, 128, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        logo_label.setPixmap(scaled_pixmap)
-        logo_label.setAlignment(Qt.AlignCenter)
-        main_layout.addWidget(logo_label)
+        logo_pixmap = QPixmap(self.paths_manager.get_asset_path('logo.png'))
+        logo_label.setPixmap(logo_pixmap.scaled(200, 200, Qt.KeepAspectRatio))
+        logo_layout.addWidget(logo_label)
+        main_layout.addLayout(logo_layout)
 
         # Form di login
         login_group = QGroupBox("Accesso")
@@ -88,6 +90,7 @@ class WelcomeDialog(HemodosDialog):
                 background-color: #006666;
             }
         """)
+        login_button.setIcon(QIcon(self.paths_manager.get_asset_path('login_64px.png')))
         login_layout.addWidget(login_button, alignment=Qt.AlignCenter)
 
         main_layout.addWidget(login_group)

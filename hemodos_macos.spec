@@ -1,18 +1,35 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
 
 block_cipher = None
+
+# Raccogli tutti i file dalla directory assets
+assets_dir = os.path.join('src', 'assets')
+assets_files = []
+for file in os.listdir(assets_dir):
+    if file.endswith(('.png', '.icns')):
+        source = os.path.join(assets_dir, file)
+        dest = os.path.join('assets', file)
+        assets_files.append((source, dest))
 
 a = Analysis(['src/main.py'],
              pathex=[],
              binaries=[],
              datas=[
-                ('src/assets', 'assets'),  # Assets directory
-                ('src/gui/themes', 'gui/themes'),  # Temi
-                ('src/templates', 'templates'),  # Template files
-                ('LICENSE', '.'),
+                *assets_files,  # Espandi la lista dei file assets
+                ('src/core', 'core'),      # Core modules
+                ('src/gui', 'gui'),        # GUI modules
+                ('config.json', '.'),      # File di configurazione
+                ('LICENSE.md', '.'),
                 ('README.md', '.'),
              ],
-             hiddenimports=[],
+             hiddenimports=[
+                'PyQt5',
+                'PyQt5.QtCore',
+                'PyQt5.QtGui',
+                'PyQt5.QtWidgets',
+                'cryptography'
+             ],
              hookspath=[],
              hooksconfig={},
              runtime_hooks=[],
@@ -52,8 +69,8 @@ app = BUNDLE(exe,
                 'CFBundleDisplayName': 'Hemodos',
                 'CFBundleGetInfoString': "Hemodos",
                 'CFBundleIdentifier': "com.hemodos.app",
-                'CFBundleVersion': "1.0.0",
-                'CFBundleShortVersionString': "1.0.0",
+                'CFBundleVersion': "1.0.9",
+                'CFBundleShortVersionString': "1.0.9",
                 'NSHighResolutionCapable': 'True',
                 'LSMinimumSystemVersion': '10.13.0',
             }) 

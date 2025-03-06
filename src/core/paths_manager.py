@@ -11,19 +11,38 @@ class PathsManager:
         
     def _init_paths(self):
         """Inizializza i percorsi base dell'applicazione"""
-        if self.is_frozen:
-            if self.is_macos:
-                # In macOS, quando frozen, il bundle è in .app/Contents/MacOS/
-                self.base_path = os.path.dirname(os.path.dirname(os.path.dirname(sys._MEIPASS)))
-                self.resources_path = os.path.join(self.base_path, 'Contents', 'Resources')
+        try:
+            if self.is_frozen:
+                if self.is_macos:
+                    # In macOS, quando frozen, il bundle è in .app/Contents/MacOS/
+                    self.base_path = os.path.dirname(os.path.dirname(os.path.dirname(sys._MEIPASS)))
+                    self.resources_path = sys._MEIPASS  # Usa direttamente MEIPASS per le risorse
+                else:
+                    self.base_path = os.path.dirname(sys.executable)
+                    self.resources_path = sys._MEIPASS
             else:
-                self.base_path = os.path.dirname(sys.executable)
-                self.resources_path = sys._MEIPASS
-        else:
-            # In development
-            self.base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-            self.resources_path = os.path.join(self.base_path, 'resources')
+                # In development
+                # Ottieni il percorso assoluto della directory src
+                current_dir = os.path.dirname(os.path.abspath(__file__))  # core/
+                self.resources_path = os.path.dirname(current_dir)  # src/
+                self.base_path = os.path.dirname(self.resources_path)  # root project dir
             
+            print(f"Base path: {self.base_path}")
+            print(f"Resources path: {self.resources_path}")
+            
+            # Verifica che la directory assets esista
+            assets_path = os.path.join(self.resources_path, 'assets')
+            if not os.path.exists(assets_path):
+                print(f"ATTENZIONE: Directory assets non trovata in: {assets_path}")
+            
+            # Crea le directory necessarie
+            os.makedirs(self.get_config_path(), exist_ok=True)
+            os.makedirs(self.get_logs_path(), exist_ok=True)
+            
+        except Exception as e:
+            print(f"Errore nell'inizializzazione dei percorsi: {str(e)}")
+            raise
+        
     def get_asset_path(self, *paths):
         """
         Restituisce il percorso completo di un asset
@@ -34,7 +53,19 @@ class PathsManager:
         Returns:
             str: percorso completo dell'asset
         """
-        return os.path.join(self.resources_path, *paths)
+        try:
+            # Usa sempre il percorso assoluto dalla root del progetto
+            asset_path = os.path.join(self.base_path, 'src', 'assets', *paths)
+            
+            # Debug logging
+            print(f"Asset path requested: {asset_path}")
+            print(f"Asset exists: {os.path.exists(asset_path)}")
+            
+            return asset_path
+        
+        except Exception as e:
+            print(f"Errore nel calcolo del percorso asset: {str(e)}")
+            raise
         
     def get_config_path(self):
         """Restituisce il percorso della directory di configurazione"""

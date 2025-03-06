@@ -45,6 +45,10 @@ class StatisticsDialog(HemodosDialog):
         
         self.content_layout.addWidget(tab_widget)
 
+        # Icone dei pulsanti
+        chart_button.setIcon(QIcon(self.paths_manager.get_asset_path('chart_64px.png')))
+        export_button.setIcon(QIcon(self.paths_manager.get_asset_path('export_64px.png')))
+
     def create_monthly_chart(self):
         fig = Figure(figsize=(8, 6))
         canvas = FigureCanvas(fig)

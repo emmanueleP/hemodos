@@ -1,11 +1,13 @@
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt5.QtCore import QSettings
 from core.themes import THEMES
+from core.paths_manager import PathsManager
 
 class HemodosDialog(QDialog):
     def __init__(self, parent=None, title=""):
         super().__init__(parent)
         self.setWindowTitle(title)
+        self.paths_manager = PathsManager()
         
         # Layout principale
         self.main_layout = QVBoxLayout(self)

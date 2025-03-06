@@ -26,20 +26,9 @@ class InfoDialog(HemodosDialog):
         
         # Aggiungi il logo
         logo_label = QLabel()
-        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "logo_info.png")
-        if not os.path.exists(logo_path):
-            logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo_info.png")
-        if not os.path.exists(logo_path):
-            logo_path = "src/assets/logo_info.png"
-
-        if os.path.exists(logo_path):
-            pixmap = QPixmap(logo_path)
-            scaled_pixmap = pixmap.scaled(140, 140, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            logo_label.setPixmap(scaled_pixmap)
-            logo_label.setAlignment(Qt.AlignCenter)
-        else:
-            logo_label.setText("Logo non trovato")
-            logo_label.setStyleSheet("QLabel { color: red; }")
+        logo_pixmap = QPixmap(self.paths_manager.get_asset_path('logo_info.png'))
+        logo_label.setPixmap(logo_pixmap.scaled(300, 300, Qt.KeepAspectRatio))
+        logo_label.setAlignment(Qt.AlignCenter)
         
         logo_layout.addWidget(logo_label)
         main_layout.addWidget(logo_container)

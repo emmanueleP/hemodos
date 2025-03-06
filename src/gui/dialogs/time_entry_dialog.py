@@ -25,6 +25,10 @@ class TimeEntryDialog(HemodosDialog):
         time_layout.addWidget(self.time_edit)
         self.content_layout.addLayout(time_layout)
 
+        # Icone dei pulsanti
+        add_button.setIcon(QIcon(self.paths_manager.get_asset_path('add_64px.png')))
+        ok_button.setIcon(QIcon(self.paths_manager.get_asset_path('ok_64px.png')))
+
     def accept(self):
         time = self.time_edit.time()
         
