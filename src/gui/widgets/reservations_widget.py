@@ -1,8 +1,9 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, 
-                            QComboBox, QGroupBox, QMessageBox, QHBoxLayout, QPushButton)
+                            QComboBox, QGroupBox, QMessageBox, QHBoxLayout, QPushButton,
+                            QDialog)
 from PyQt5.QtCore import QTime, Qt, QDate, QSize
 from core.logger import logger
-from core.database import get_reservations, add_reservation, save_donation_status
+from core.database import get_reservations, add_reservation, save_donation_status, add_donation_time
 from datetime import datetime
 from core.database import delete_reservation_from_db
 from PyQt5.QtGui import QIcon
@@ -40,33 +41,6 @@ class ReservationsWidget(QWidget):
         table_layout.addWidget(self.table)
         table_group.setLayout(table_layout)
         layout.addWidget(table_group)
-
-        # Toolbar
-        self._init_toolbar(layout)
-
-    def _init_toolbar(self, layout):
-        """Inizializza la toolbar con i pulsanti"""
-        toolbar = QHBoxLayout()
-        
-        buttons = [
-            ("add_time.png", "Aggiungi orario", self.show_time_entry_dialog),
-            ("save.png", "Salva (Ctrl+S)", self.save_reservations),
-            ("delete.png", "Elimina prenotazione", self.delete_reservation),
-            ("doc.png", "Esporta in docx", lambda: self.main_window.export_manager.export_to_docx(self.reservations_widget)),
-            ("printer.png", "Stampa", self.print_reservations)
-        ]
-        
-        for icon_name, tooltip, callback in buttons:
-            button = QPushButton()
-            button.setIcon(QIcon(self.main_window.paths_manager.get_asset_path(icon_name)))
-            button.setIconSize(QSize(24, 24))
-            button.setToolTip(tooltip)
-            button.clicked.connect(callback)
-            button.setFixedSize(36, 36)
-            toolbar.addWidget(button)
-        
-        toolbar.addStretch()
-        layout.addLayout(toolbar)
 
     def load_default_times(self):
         """Carica gli orari predefiniti nella tabella"""
@@ -201,18 +175,20 @@ class ReservationsWidget(QWidget):
                 f"Errore nel salvataggio della prenotazione: {str(e)}"
             )
 
-    def delete_reservation(self, row):
-        """Elimina una prenotazione dal database"""
-        time = self.table.item(row, 0).text()
-        delete_reservation_from_db(self.main_window.calendar.selectedDate(), time)
-        self.load_default_times()
+    def delete_reservation(self):
+        """Elimina la prenotazione selezionata"""
+        if self.main_window.database_manager.delete_reservation(
+            self.table,
+            self.table.currentRow()
+        ):
+            self.main_window.status_manager.show_message("Prenotazione eliminata", 3000)
 
     def clear_table(self):
         """Pulisce la tabella"""
         self.table.setRowCount(0)
 
     def get_table(self):
-        """Restituisce il riferimento alla tabella"""
+        """Restituisce la tabella delle prenotazioni"""
         return self.table
 
     def load_reservations(self, selected_date):
@@ -250,4 +226,35 @@ class ReservationsWidget(QWidget):
                 self,
                 "Errore",
                 f"Errore nel caricamento delle prenotazioni: {str(e)}"
-            ) 
+            )
+
+    def show_time_entry_dialog(self):
+        """Mostra il dialog per l'inserimento degli orari"""
+        from gui.dialogs.time_entry_dialog import TimeEntryDialog
+        
+        dialog = TimeEntryDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            time = dialog.get_time()
+            date = self.main_window.calendar.selectedDate().toString("yyyy-MM-dd")
+            if add_donation_time(date, time):
+                self.load_default_times()
+                self.main_window.calendar_manager.highlight_donation_dates()
+
+    def save_reservations(self):
+        """Salva le prenotazioni correnti"""
+        if self.main_window.database_manager.save_reservations(
+            self.table,
+            self.main_window.calendar.selectedDate().toString("yyyy-MM-dd"),
+            True
+        ):
+            self.main_window.status_manager.show_message("Salvataggio completato", 3000)
+            return True
+        return False
+
+    def export_to_docx(self):
+        """Esporta le prenotazioni in formato docx"""
+        self.main_window.export_manager.export_to_docx(self)
+
+    def print_reservations(self):
+        """Stampa le prenotazioni"""
+        self.main_window.print_manager.print_reservations(self) 

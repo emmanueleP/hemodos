@@ -54,8 +54,12 @@ class PathsManager:
             str: percorso completo dell'asset
         """
         try:
-            # Usa sempre il percorso assoluto dalla root del progetto
-            asset_path = os.path.join(self.base_path, 'src', 'assets', *paths)
+            if self.is_frozen:
+                # Quando l'app è compilata, usa sys._MEIPASS
+                asset_path = os.path.join(self.resources_path, 'assets', *paths)
+            else:
+                # In development, usa il percorso relativo
+                asset_path = os.path.join(self.base_path, 'src', 'assets', *paths)
             
             # Debug logging
             print(f"Asset path requested: {asset_path}")
