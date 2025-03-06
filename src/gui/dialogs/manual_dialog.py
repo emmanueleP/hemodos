@@ -22,6 +22,7 @@ class ManualDialog(HemodosDialog):
         tab_widget.addTab(self.create_tools_tab(), "Strumenti")
         tab_widget.addTab(self.create_settings_tab(), "Impostazioni")
         tab_widget.addTab(self.create_shortcuts_tab(), "Scorciatoie")
+        tab_widget.addTab(self.create_admin_tab(), "HemodosAdmin")
 
         self.content_layout.addWidget(tab_widget)
 
@@ -215,6 +216,77 @@ class ManualDialog(HemodosDialog):
             <li><b>Esc</b>: Annulla modifica</li>
             <li><b>Canc</b>: Cancella contenuto</li>
             <li><b>Ctrl+F</b>: Cerca</li>
+        </ul>
+        """
+        return self.create_text_tab(content)
+
+    def create_admin_tab(self):
+        content = """
+        <h2>HemodosAdmin</h2>
+        <p>HemodosAdmin è l'interfaccia di amministrazione di Hemodos che permette la gestione completa 
+        del sistema e degli utenti.</p>
+
+        <h3>Primo Accesso</h3>
+        <p>Al primo avvio, viene creato automaticamente un account amministratore con le seguenti credenziali:</p>
+        <ul>
+            <li><b>Username:</b> admin</li>
+            <li><b>Password:</b> admin123</li>
+        </ul>
+        <p><b>IMPORTANTE:</b> Per motivi di sicurezza, si raccomanda di cambiare immediatamente la password 
+        al primo accesso.</p>
+
+        <h3>Funzionalità Amministrative</h3>
+        <ul>
+            <li>Gestione completa degli utenti:
+                <ul>
+                    <li>Creazione nuovi account</li>
+                    <li>Modifica permessi</li>
+                    <li>Reset password</li>
+                    <li>Disattivazione account</li>
+                </ul>
+            </li>
+            <li>Gestione del database:
+                <ul>
+                    <li>Backup manuale</li>
+                    <li>Ripristino dati</li>
+                    <li>Pulizia archivi</li>
+                    <li>Ottimizzazione</li>
+                </ul>
+            </li>
+            <li>Configurazione sistema:
+                <ul>
+                    <li>Impostazioni cloud</li>
+                    <li>Policy di sicurezza</li>
+                    <li>Parametri di sistema</li>
+                    <li>Gestione backup automatici</li>
+                </ul>
+            </li>
+            <li>Monitoraggio:
+                <ul>
+                    <li>Log di sistema</li>
+                    <li>Attività utenti</li>
+                    <li>Stato sincronizzazione</li>
+                    <li>Performance sistema</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h3>Sicurezza</h3>
+        <ul>
+            <li>Tutte le password sono crittografate con algoritmi sicuri</li>
+            <li>I dati sensibili sono protetti con crittografia</li>
+            <li>Le sessioni admin hanno timeout di sicurezza</li>
+            <li>Viene mantenuto un log dettagliato delle operazioni amministrative</li>
+        </ul>
+
+        <h3>Best Practices</h3>
+        <ul>
+            <li>Cambiare regolarmente la password admin</li>
+            <li>Creare account individuali per ogni amministratore</li>
+            <li>Utilizzare password complesse (minimo 8 caratteri, maiuscole, numeri e simboli)</li>
+            <li>Effettuare backup regolari del database</li>
+            <li>Controllare periodicamente i log di sistema</li>
+            <li>Mantenere aggiornato il software</li>
         </ul>
         """
         return self.create_text_tab(content)

@@ -53,6 +53,9 @@ class UserManager:
         self.settings = QSettings('Hemodos', 'DatabaseSettings')
         self.cloud_path = self.settings.value("cloud_path", "")
         self.hemodos_dir = self._get_hemodos_dir()
+        self.users_file = None  # Inizializza a None
+        self.key_file = None    # Inizializza a None
+        
         if self.hemodos_dir:
             self.users_file = os.path.join(self.hemodos_dir, ".hemodos_users")
             self.key_file = os.path.join(self.hemodos_dir, '.hemodos_key')
@@ -61,34 +64,56 @@ class UserManager:
             logger.error("Directory Hemodos non configurata")
         
     def _get_hemodos_dir(self):
-        """Ottiene la directory Hemodos nel cloud"""
+        """Ottiene la directory Hemodos nel cloud o nella directory utente"""
         cloud_path = self.settings.value("cloud_path")
         if not cloud_path:
+            # Su macOS, usa la directory dell'utente se non è configurato un cloud path
+            home = os.path.expanduser("~")
+            default_dir = os.path.join(home, "Library", "Application Support", "Hemodos") if os.name == 'posix' else None
+            if default_dir:
+                os.makedirs(default_dir, exist_ok=True)
+                return default_dir
             return None
+            
         hemodos_dir = os.path.join(cloud_path, "Hemodos")
         os.makedirs(hemodos_dir, exist_ok=True)
         return hemodos_dir
         
     def _init_crypto(self):
         """Inizializza la crittografia"""
+        if not self.key_file:
+            logger.error("Key file non configurato")
+            return
+            
+        key_dir = os.path.dirname(self.key_file)
+        os.makedirs(key_dir, exist_ok=True)  # Crea directory se non esiste
+        
         if not os.path.exists(self.key_file):
             # Genera una nuova chiave master
             master_key = Fernet.generate_key()
             
-            # Salva la chiave crittografata
-            with open(self.key_file, 'wb') as f:
-                f.write(master_key)
-            
+            # Imposta i permessi corretti per il file su macOS/Linux
+            try:
+                with open(self.key_file, 'wb') as f:
+                    f.write(master_key)
+                if os.name == 'posix':  # macOS/Linux
+                    os.chmod(self.key_file, 0o600)  # Solo l'utente può leggere/scrivere
+            except Exception as e:
+                logger.error(f"Errore nella creazione del key file: {str(e)}")
+                return
+                
             # Inizializza Fernet con la chiave master
             self.fernet = Fernet(master_key)
             
             # Crea l'utente admin di default
             self.create_default_admin()
         else:
-            # Carica la chiave esistente
-            with open(self.key_file, 'rb') as f:
-                master_key = f.read()
-            self.fernet = Fernet(master_key)
+            try:
+                with open(self.key_file, 'rb') as f:
+                    master_key = f.read()
+                self.fernet = Fernet(master_key)
+            except Exception as e:
+                logger.error(f"Errore nel caricamento della chiave: {str(e)}")
         
     def _hash_password(self, password):
         """Genera hash della password usando PBKDF2"""
@@ -173,6 +198,10 @@ class UserManager:
 
     def verify_login(self, username, password):
         """Verifica le credenziali dell'utente e gestisce il cambio password se necessario"""
+        if not self.users_file or not self.key_file:
+            logger.error("File di sistema non configurati correttamente")
+            return False
+            
         try:
             users = self._load_users()
             if username not in users:
