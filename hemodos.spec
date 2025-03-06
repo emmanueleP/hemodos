@@ -2,28 +2,14 @@
 import os
 import json
 from pathlib import Path
-import sys
-import platform
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_dynamic_libs
 
 block_cipher = None
 
-# Sistema operativo
-system = platform.system()
-
-# Configurazione specifica per sistema
-if system == "Windows":
-    icon = 'src/assets/logo.ico'
-elif system == "Darwin":
-    icon = 'src/assets/icon.icns'
-else:
-    icon = 'src/assets/icon.png'
-
-
 # Definisci i percorsi base
 BASE_PATH = Path('.')
 SRC_PATH = BASE_PATH / 'src'
-ASSETS_PATH = SRC_PATH / 'assets'  # Cartella assets dentro src
+ASSETS_PATH = SRC_PATH / 'assets'
 DOCS_PATH = BASE_PATH / 'docs'
 
 # Crea le directory necessarie
@@ -62,7 +48,7 @@ for asset in required_assets:
     if not (ASSETS_PATH / asset).exists():
         raise FileNotFoundError(f"File {asset} non trovato in {ASSETS_PATH}")
 
-# Configurazione di default aggiornata
+# Configurazione di default
 default_config = {
     "database": {
         "host": "localhost",
@@ -77,12 +63,12 @@ default_config = {
         "log_level": "INFO",
         "autosave": {"enabled": True, "interval": 5},
         "cloud": {"service": "Locale", "sync_interval": 30},
-        "show_welcome": True  # Aggiunto controllo per welcome dialog
+        "show_welcome": True
     },
     "ui": {
         "theme": "dark",
         "primary_color": "#004d4d",
-        "font": "SF Pro Display",
+        "font": "Segoe UI",  # Font di default per Windows
         "window": {
             "width": 1024,
             "height": 768,
@@ -98,25 +84,14 @@ with open(config_path, 'w', encoding='utf-8') as f:
     json.dump(default_config, f, indent=4)
 
 # Raccogli tutti i dati necessari
-datas = []
-
-# Aggiungi qt_material e le sue dipendenze
-try:
-    datas.extend(collect_data_files('qt_material'))
-    datas.extend(collect_data_files('qtawesome'))
-except Exception as e:
-    print(f"WARNING: qt_material/qtawesome files not found: {e}")
-
-# Aggiungi gli assets come data files
-datas.extend([
-    ('dist/assets', 'assets'),
-    ('dist/templates', 'templates'),
-    ('dist/static', 'static'),
+datas = [
+    ('src/assets/*', 'assets'),
+    ('dist/config.json', '.'),
     ('LICENSE.md', '.'),
-    ('README.md', '.'),
-])
+    ('README.md', '.')
+]
 
-# Raccogli tutti i submoduli necessari
+# Hidden imports necessari per Windows
 hidden_imports = [
     'PyQt5',
     'PyQt5.QtCore',
@@ -130,9 +105,6 @@ hidden_imports = [
     'cryptography',
     'cryptography.hazmat.backends.openssl',
     'cryptography.hazmat.bindings._openssl',
-    'qt_material',
-    'qt_material.resources',
-    'qtawesome',
     'json',
     'datetime',
     'logging',
@@ -144,23 +116,13 @@ hidden_imports = [
     'typing',
 ]
 
-# Raccogli le librerie dinamiche
-binaries = []
-try:
-    # Aggiungi le librerie di cryptography
-    binaries.extend(collect_dynamic_libs('cryptography'))
-    # Aggiungi le librerie Qt
-    binaries.extend(collect_dynamic_libs('PyQt5'))
-except Exception as e:
-    print(f"WARNING: dynamic libs not found: {e}")
-
-# Configurazione dell'analisi
+# Analisi
 a = Analysis(
     ['src/main.py'],
     pathex=[],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -171,7 +133,7 @@ a = Analysis(
     noarchive=False,
 )
 
-# Rimuovi file duplicati
+# Rimuovi duplicati
 def remove_duplicates(list_of_tuples):
     seen = set()
     return [x for x in list_of_tuples if not (tuple(x) in seen or seen.add(tuple(x)))]
@@ -179,83 +141,36 @@ def remove_duplicates(list_of_tuples):
 a.datas = remove_duplicates(a.datas)
 a.binaries = remove_duplicates(a.binaries)
 
-# Configurazione del PYZ
+# PYZ
 pyz = PYZ(
     a.pure,
     a.zipped_data,
     cipher=block_cipher
 )
 
-# Configurazione specifica per sistema operativo
-if platform.system() == 'Darwin':
-    icon_file = 'src/assets/logo.icns'
-    if not os.path.exists(icon_file):
-        icon_file = None
-        
-    exe = EXE(
-        pyz,
-        a.scripts,
-        a.binaries,
-        a.zipfiles,
-        a.datas,
-        [],
-        name='Hemodos',
-        debug=False,
-        bootloader_ignore_signals=False,
-        strip=False,
-        upx=True,
-        upx_exclude=[],
-        runtime_tmpdir=None,
-        console=False,
-        disable_windowed_traceback=False,
-        target_arch=None,
-        codesign_identity=None,
-        entitlements_file=None,
-        icon=icon_file
-    )
-    
-    app = BUNDLE(
-        exe,
-        name='Hemodos.app',
-        icon=icon_file,
-        bundle_identifier='com.emmanuele.hemodos',
-        info_plist={
-            'CFBundleShortVersionString': '1.0.8',
-            'CFBundleVersion': '1.0.8',
-            'NSHighResolutionCapable': 'True'
-        }
-    )
-else:
-    icon_file = 'src/assets/logo.ico'
-    if not os.path.exists(icon_file):
-        icon_file = None
-        
-    version_file = 'file_version_info.txt'
-    if not os.path.exists(version_file):
-        version_file = None
-        
-    exe = EXE(
-        pyz,
-        a.scripts,
-        a.binaries,
-        a.zipfiles,
-        a.datas,
-        [],
-        name='Hemodos',
-        debug=False,
-        bootloader_ignore_signals=False,
-        strip=False,
-        upx=True,
-        upx_exclude=[],
-        runtime_tmpdir=None,
-        console=False,
-        disable_windowed_traceback=False,
-        target_arch=None,
-        codesign_identity=None,
-        entitlements_file=None,
-        icon=icon_file,
-        version=version_file,
-        uac_admin=False,
-    )
+# Configurazione EXE per Windows
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    [],
+    name='Hemodos',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon='src/assets/logo.ico',
+    version='file_version_info.txt',
+    uac_admin=False,
+)
 
-print("Build completata con successo!") 
+print("Build Windows completata con successo!") 
